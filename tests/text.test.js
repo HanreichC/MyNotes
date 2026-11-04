@@ -83,4 +83,12 @@ test('titles come from the first line with text', () => {
   assert.equal(titleOf('{\n"name": "x"\n}'), 'name x');
   assert.equal(titleOf('---\n***'), 'Unbenannt');
   assert.equal(titleOf(''), 'Unbenannt');
+  // long lines: cut at a word, and the name no longer changes while the line goes on
+  const long = 'Hallo was ist das denn für eine fesfesfsefsfseffffffffffffffff';
+  assert.equal(titleOf(long), 'Hallo was ist das denn für eine');
+  assert.equal(titleOf(`${long}ffffffff weiter`), 'Hallo was ist das denn für eine');
+  assert.equal(titleOf('x'.repeat(40)), 'x'.repeat(40));
+  assert.equal(titleOf('x'.repeat(60)), 'x'.repeat(40));
+  assert.equal(titleOf(`Erster Satz. ${'x'.repeat(50)}`), 'Erster Satz');
+  assert.equal(titleOf(`${'x'.repeat(39)}😀😀`), 'x'.repeat(39));
 });

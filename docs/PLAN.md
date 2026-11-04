@@ -132,7 +132,7 @@ TipTap erzeugt das Markdown beim Speichern neu. Aus `5 * 3` kann also `5 \* 3` w
 
 **Navigation:** Baum mit Ordnern und Unterordnern, Anlegen, Umbenennen, Verschieben und Sortieren per Ziehen, Schnellfilter, Papierkorb. Die manuelle Reihenfolge liegt in `.mynotes/order.json` im Notizordner.
 
-**Titel:** Neue Notizen heißen nach ihrer ersten Zeile, bis du sie umbenennst oder verschiebst. Dateinamen sind auf beiden Systemen gültig.
+**Titel:** Neue Notizen heißen nach dem Anfang ihrer ersten Zeile (höchstens 40 Zeichen, an einer Wortgrenze gekürzt), bis du sie umbenennst oder verschiebst. Dateinamen sind auf beiden Systemen gültig.
 
 **Markdown:** Überschriften, Fett, Kursiv, Durchgestrichen, Inline-Code, Links, Listen, Checklisten, Zitate, Code-Blöcke mit Highlighting, Tabellen, Trennlinien, Bilder. Dazu Slash-Menü, Formatleiste bei Auswahl und Markdown-Kürzel beim Tippen.
 

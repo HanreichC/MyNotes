@@ -323,7 +323,9 @@ function paintTabs() {
     }));
     return node;
   }));
-  list.querySelector('.is-active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  // Into view when the active tab changes or while typing, but a repaint must not pull the list away from someone looking for another tab.
+  if (state.activeId !== state.tabInView || !list.matches(':hover')) list.querySelector('.is-active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  state.tabInView = state.activeId;
 }
 
 function tabMenu(tab, at) {
@@ -598,16 +600,23 @@ const inCode = (fn) => () => {
   else banner({ kind: 'info', text: 'Das geht in Code-Dateien und in der Quelltextansicht (Strg+/).' });
 };
 
+/** What opens something new: the menu on the plus button, and the top of the command list. */
+const openCommands = () => [
+  { label: 'Neuer Tab', hint: 'Strg+T', run: () => newTab() },
+  { label: 'Neue JSON-Datei', run: () => newTab({ ext: '.json' }) },
+  { label: 'Datei öffnen …', hint: 'Strg+O', run: openFiles },
+  { label: 'Notiz öffnen …', hint: 'Strg+P', run: quickOpen },
+  { label: 'Geschlossenen Tab zurückholen', hint: 'Strg+Umschalt+T', run: reopenClosed, disabled: !state.closed.length },
+];
+
+const showCommands = () => pick({ title: 'Befehl …', items: commands() });
+
 function commands() {
   const tab = activeTab();
   const md = tab && isMd(tab.doc);
   return [
-    { label: 'Neuer Tab', hint: 'Strg+T', run: () => newTab() },
-    { label: 'Neue JSON-Datei', run: () => newTab({ ext: '.json' }) },
-    { label: 'Datei öffnen …', hint: 'Strg+O', run: openFiles },
-    { label: 'Notiz öffnen …', hint: 'Strg+P', run: quickOpen },
+    ...openCommands(),
     { label: 'In allen Notizen suchen …', hint: 'Strg+Umschalt+F', run: showSearch },
-    { label: 'Geschlossenen Tab zurückholen', hint: 'Strg+Umschalt+T', run: reopenClosed },
     { label: 'Suchen und Ersetzen', hint: 'Strg+F', run: () => tab?.editor.find() },
     { label: 'JSON formatieren (Pretty Print)', hint: 'Strg+Alt+J', run: () => jsonTool(prettyJson) },
     { label: 'JSON komprimieren (Minify)', hint: 'Strg+Alt+Umschalt+J', run: () => jsonTool((s) => minifyJson(s)) },
@@ -921,7 +930,7 @@ window.addEventListener('keydown', (e) => {
   if (e.altKey) return undefined;
   if (e.shiftKey) {
     if (k === 't') return take(reopenClosed);
-    if (k === 'p') return take(() => pick({ title: 'Befehl …', items: commands() }));
+    if (k === 'p') return take(showCommands);
     if (k === 'f') return take(showSearch);
     if (k === 'tab') return take(() => cycleTab(-1));
     return undefined;
@@ -954,7 +963,6 @@ function wire() {
   iconize('new-folder', 'folderPlus');
   iconize('new-note', 'plus');
   iconize('tab-new', 'plus');
-  iconize('win-menu', 'more');
   iconize('win-min', 'minus');
   iconize('win-max', 'maximize');
   iconize('win-close', 'close');
@@ -965,9 +973,18 @@ function wire() {
 
   $('new-note').addEventListener('click', () => newTab());
   $('tab-new').addEventListener('click', () => newTab());
+  $('tab-new').addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    menu(e.currentTarget, [...openCommands(), { separator: true }, { label: 'Alle Befehle …', run: showCommands }]);
+  });
+  // A mouse wheel only scrolls vertically and this list shows no scrollbar: without this, tabs that moved out of view stay out of reach.
+  $('tab-list').addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    e.preventDefault();
+    e.currentTarget.scrollLeft += e.deltaY;
+  }, { passive: false });
   $('new-folder').addEventListener('click', () => createFolderIn(''));
   $('filter').addEventListener('input', (e) => { state.filter = e.target.value; paintTree(); });
-  $('win-menu').addEventListener('click', () => pick({ title: 'Befehl …', items: commands() }));
   $('win-min').addEventListener('click', () => api.win('minimize'));
   $('win-max').addEventListener('click', () => api.win('maximize'));
   $('win-close').addEventListener('click', () => api.win('close'));

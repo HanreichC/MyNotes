@@ -19,7 +19,6 @@ const paths = {
   glass: stroke('<path d="M12 3.2c3.3 4 6.2 7.3 6.2 10.9a6.2 6.2 0 0 1-12.4 0c0-3.6 2.9-6.9 6.2-10.9z"/><path d="M9.2 14.4a2.9 2.9 0 0 0 2.4 2.7"/>'),
   search: stroke('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20.5 20.5"/>'),
   trash: stroke('<path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5"/>'),
-  more: '<g fill="currentColor"><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/></g>',
   maximize: stroke('<rect x="6" y="6" width="12" height="12" rx="2.5"/>'),
   restore: stroke('<rect x="5" y="9" width="10" height="10" rx="2.5"/><path d="M9 5.5h7a3 3 0 0 1 3 3v7"/>'),
   chevronRight: stroke('<path d="M9.5 6l6 6-6 6"/>', 2),

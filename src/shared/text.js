@@ -55,7 +55,7 @@ const RESERVED = /^(con|prn|aux|nul|com\d|lpt\d)(\..*)?$/i;
 
 /** A file name stem that is valid on Windows and Linux, so a synced folder works on both. */
 export function safeName(name, fallback = 'Unbenannt') {
-  const s = String(name).replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80).replace(/[. ]+$/, '').trim();
+  const s = String(name).replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80).replace(/\p{Cs}/gu, '').replace(/[. ]+$/, '').trim(); // a cut can split an emoji
   if (!/[\p{L}\p{N}]/u.test(s)) return fallback;
   return RESERVED.test(s) ? `_${s}` : s;
 }
@@ -63,14 +63,19 @@ export function safeName(name, fallback = 'Unbenannt') {
 /** Prose is named after its first line. The first line of code or JSON says nothing, so those wait for a real name. */
 export const nameFromText = (text, ext) => (/^\.(md|markdown|txt)$/i.test(ext) ? titleOf(text) : 'Unbenannt');
 
-/** The note's title: the first line that has any text, without its Markdown markers. */
+const TITLE_MAX = 40;
+
+/** A title is a handle, not the whole line: cut at a word, so the name stops growing while the line goes on. */
+const shorten = (t) => (t.length <= TITLE_MAX ? t : t.slice(0, TITLE_MAX + 1).replace(/\s+\S*$/, '').slice(0, TITLE_MAX));
+
+/** The note's title: the start of the first line that has any text, without its Markdown markers. */
 export function titleOf(text) {
   for (const line of text.split('\n', 50)) {
     const t = line
       .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // an image says nothing about the title
       .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // of a link, only its text does
       .replace(/^\s*(#{1,6}\s+|>\s*|[-*+]\s+(\[[ xX]\]\s+)?|\d+[.)]\s+)*/, '').replace(/[*_`~]/g, '').trim();
-    if (/[\p{L}\p{N}]/u.test(t)) return safeName(t);
+    if (/[\p{L}\p{N}]/u.test(t)) return safeName(shorten(t));
   }
   return 'Unbenannt';
 }

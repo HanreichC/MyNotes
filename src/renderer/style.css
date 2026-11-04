@@ -190,7 +190,7 @@ svg { display: block; }
 .sheet--wide { width: min(880px, 100%); }
 .sheet-head { flex: none; display: flex; align-items: center; justify-content: space-between; padding: var(--ms-space-s) var(--ms-space-s) var(--ms-space-s) var(--ms-space-l); }
 .sheet-head h2 { margin: 0; }
-.sheet-body { flex: 1; min-height: 0; padding: 0 var(--ms-space-l) var(--ms-space-l); }
+.sheet-body { flex: 1; min-height: 0; padding: var(--ms-space-xs) var(--ms-space-l) var(--ms-space-l); } /* a scroller clips what it holds: the top padding keeps a focus ring whole */
 .sheet-section { margin: var(--ms-space-s) 0 var(--ms-space-xs) var(--ms-space-l); color: var(--ms-color-label-secondary); }
 .sheet-note { margin: var(--ms-space-xs) var(--ms-space-l) var(--ms-space-s); }
 .sheet-actions { display: flex; justify-content: flex-end; margin-top: var(--ms-space-m); }

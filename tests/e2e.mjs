@@ -73,6 +73,19 @@ try {
   assert.deepEqual(bar, { left: bar.right, right: bar.left, grip: false, nameAfterTabs: true });
   step('title bar across the window');
 
+  // ---------- the plus button: a click opens a tab at once, a right click offers the rest; the three dots are gone
+  assert.equal(await page.$('#win-menu'), null);
+  await page.click('#tab-new', { button: 'right' });
+  await page.waitForSelector('.float-menu');
+  const offered = await page.$$eval('.float-menu button', (n) => n.map((x) => x.textContent));
+  assert.deepEqual(offered, ['Neuer Tab', 'Neue JSON-Datei', 'Datei öffnen …', 'Notiz öffnen …', 'Geschlossenen Tab zurückholen', 'Alle Befehle …']);
+  await shot(page, '0-plus-menu');
+  await page.click('.float-menu button:last-child');
+  await page.waitForSelector('.float-menu', { state: 'detached' });
+  await page.keyboard.press('Escape');
+  await until(async () => !(await page.$('#layer .overlay')), 'command list closed');
+  step('plus button: menu on right click, command list behind it');
+
   // ---------- WYSIWYG: typing Markdown shortcuts formats live, the file holds Markdown
   await page.click('.prose');
   await page.keyboard.type('# Projektplan\nErster **fetter** Absatz\n');
@@ -242,7 +255,7 @@ try {
   await page.waitForSelector('.pane:not([hidden]) .prose img');
   await page.waitForFunction(() => document.querySelector('.pane:not([hidden]) .prose img').naturalWidth === 8);
   await page.keyboard.press('Control+s');
-  await until(async () => (await read('Eingang/Ohne Pause geschrieben und trotzdem laufend gesichert.md').catch(() => '')).includes('.mynotes/assets/'), 'image in the Markdown');
+  await until(async () => (await read('Eingang/Ohne Pause geschrieben und trotzdem.md').catch(() => '')).includes('.mynotes/assets/'), 'image in the Markdown');
   assert.equal((await fs.readdir(path.join(vault, '.mynotes', 'assets'))).length, 1);
   assert.equal(await page.$eval('.pane:not([hidden]) .prose-host', (n) => n.classList.contains('is-empty')), false, 'placeholder over a note with content');
   step('pasted image is stored, displayed and kept in the Markdown');
@@ -335,6 +348,21 @@ try {
   assert.equal(await page.textContent('.tab.is-active .tab-name'), 'Teamplan');
   step('Ctrl+W and Ctrl+Shift+T');
 
+  // ---------- many tabs: the wheel reaches the first one, and a repaint from typing does not pull the list back
+  const tabScroll = () => page.$eval('#tab-list', (n) => n.scrollLeft);
+  const tabsBox = await page.locator('#tab-list').boundingBox();
+  await page.mouse.move(tabsBox.x + tabsBox.width / 2, tabsBox.y + tabsBox.height / 2);
+  await newTab(page);
+  await page.keyboard.type('Neu');
+  assert.ok((await tabScroll()) > 0, 'the tabs should not fit, or this proves nothing');
+  await page.mouse.wheel(0, -100000);
+  await until(async () => (await tabScroll()) === 0, 'wheel reached the first tab');
+  await new Promise((r) => setTimeout(r, 400));
+  assert.equal(await tabScroll(), 0);
+  await page.keyboard.press('Control+w');
+  await until(async () => (await tabNames(page)).length === count, 'tab closed');
+  step('the wheel reaches the first tab and the list stays there');
+
   // ---------- trash and restore
   await page.click('[data-path="korpus0.md"]', { button: 'right' });
   await page.click('text=In den Papierkorb legen');
@@ -349,6 +377,8 @@ try {
   await page.keyboard.press('Control+Shift+f');
   await page.fill('input[aria-label="Suchbegriff"]', 'Zitat');
   await page.waitForSelector('.search-hit');
+  const ringRoom = await page.$eval('input[aria-label="Suchbegriff"]', (f) => f.getBoundingClientRect().top - f.closest('.sheet-body').getBoundingClientRect().top);
+  assert.ok(ringRoom >= 2, `the scroller clips the focus ring (${ringRoom}px of room)`);
   await shot(page, '4-search');
   await page.keyboard.press('Escape');
   step('search across notes');

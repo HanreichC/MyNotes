@@ -50,7 +50,7 @@ Your notes are plain files. You can open them with anything, or sync them with N
 
 ## Open a tab. Start typing.
 
-Press `Ctrl+T` and type, the same as in Notepad++. With the first character the tab becomes a real file in the folder `Eingang` (inbox), named after its first line. Rename it or drag it into a folder and the name stays yours from then on. A tab you never typed in leaves nothing behind.
+Press `Ctrl+T` and type, the same as in Notepad++. With the first character the tab becomes a real file in the folder `Eingang` (inbox), named after the start of its first line (40 characters at most, cut at a word). Right-click the `+` to open a file, a note or a closed tab instead. Rename it or drag it into a folder and the name stays yours from then on. A tab you never typed in leaves nothing behind.
 
 Closing a tab never asks anything, and `Ctrl+Shift+T` brings it back.
 
