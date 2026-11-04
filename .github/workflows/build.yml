@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  push:
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm test
+      - run: npm run e2e
+      - run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MyNotes-Windows
+          path: release/*.exe
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      # The Arch container, so the pacman package and the tests match CachyOS
+      - run: docker build -t mynotes-dev .devcontainer
+      - run: >
+          docker run --rm -v "$PWD:/workspace" -v mynotes-modules:/workspace/node_modules -w /workspace -e CI=1 mynotes-dev bash -c
+          'npm ci && npm test && node build.mjs && xvfb-run -a node tests/e2e.mjs && npx electron-builder'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MyNotes-Linux
+          path: |
+            release/*.AppImage
+            release/*.pacman

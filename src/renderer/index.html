@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: mynotes:; connect-src 'self'">
+<title>MyNotes</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="window">
+  <aside id="sidebar" class="ms-glass" aria-label="Notizen">
+    <div class="side-head"><span class="ms-title2">MyNotes</span></div>
+    <div class="side-tools">
+      <input id="filter" class="ms-field" type="search" placeholder="Filtern" aria-label="Notizen filtern">
+      <button id="new-folder" class="icon-btn" aria-label="Neuer Ordner" title="Neuer Ordner"></button>
+      <button id="new-note" class="icon-btn" aria-label="Neue Notiz" title="Neue Notiz (Strg+N)"></button>
+    </div>
+    <div id="tree" class="ms-scroll" role="tree" aria-label="Notizbaum"></div>
+    <div class="side-foot">
+      <button id="btn-search" class="side-link"></button>
+      <button id="btn-trash" class="side-link"></button>
+      <button id="btn-settings" class="side-link"></button>
+    </div>
+    <div id="side-resize" role="separator" aria-orientation="vertical" aria-label="Breite der Seitenleiste" tabindex="0"></div>
+  </aside>
+
+  <main id="main">
+    <header id="topbar">
+      <div id="tabs" class="ms-glass ms-glass--capsule" role="tablist" aria-label="Offene Notizen">
+        <div id="tab-list" class="ms-scroll"></div>
+        <button id="tab-new" class="icon-btn" aria-label="Neuer Tab" title="Neuer Tab (Strg+T)"></button>
+      </div>
+      <div id="window-buttons" class="ms-glass ms-glass--capsule">
+        <button id="win-menu" class="round-btn" aria-label="Befehle" title="Befehle (Strg+Umschalt+P)"></button>
+        <div id="win-grip" title="Fenster verschieben" aria-hidden="true"></div>
+        <button id="win-min" class="round-btn" aria-label="Minimieren" title="Minimieren"></button>
+        <button id="win-max" class="round-btn" aria-label="Maximieren" title="Maximieren"></button>
+        <button id="win-close" class="round-btn ms-button--close" aria-label="Schließen" title="Schließen"></button>
+      </div>
+    </header>
+    <div id="banner" hidden role="alert"></div>
+    <section id="editors" class="ms-card"></section>
+    <footer id="status" class="ms-caption ms-num">
+      <span id="st-save" role="status"></span>
+      <span id="st-right">
+        <span id="st-pos"></span>
+        <button id="st-mode" class="st-btn"></button>
+        <button id="st-enc" class="st-btn"></button>
+        <button id="st-eol" class="st-btn"></button>
+      </span>
+    </footer>
+  </main>
+</div>
+<div id="layer"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

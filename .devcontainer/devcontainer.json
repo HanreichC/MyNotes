@@ -1,0 +1,8 @@
+{
+    "name": "MyNotes (Arch, Electron)",
+    "build": { "dockerfile": "Dockerfile" },
+    "workspaceFolder": "/workspace",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    "mounts": ["target=/workspace/node_modules,type=volume"],
+    "postCreateCommand": "npm ci"
+}
