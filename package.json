@@ -27,13 +27,8 @@
     },
     "win": {
       "target": [
-        "nsis"
+        "msi"
       ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true
     },
     "linux": {
       "target": [
@@ -55,6 +50,13 @@
         "libxtst",
         "xdg-utils"
       ]
+    },
+    "msi": {
+      "perMachine": false,
+      "artifactName": "MyNotes-x64.${ext}"
+    },
+    "appImage": {
+      "artifactName": "MyNotes-x86_64.${ext}"
     }
   },
   "devDependencies": {

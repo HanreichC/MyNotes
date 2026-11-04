@@ -169,21 +169,21 @@ If transparency effects are off in Windows, MyNotes follows and shows a matte su
 
 ## Download. Install. Done.
 
-There are no releases yet. Every push builds the packages and attaches them to its [Build](https://github.com/HanreichC/MyNotes/actions/workflows/build.yml) run as `MyNotes-Windows` and `MyNotes-Linux`. GitHub asks you to log in to download them.
+The latest version is always on the [Releases](https://github.com/HanreichC/MyNotes/releases/latest) page. Every push to `main` becomes a release `vX.Y.N` once the tests pass on both systems.
 
-On Windows, run `MyNotes Setup 0.1.0.exe`. It isn't signed, so SmartScreen warns you the first time.
+On Windows, run `MyNotes-x64.msi`. It installs for your user, without administrator rights. It isn't signed, so SmartScreen warns you the first time.
 
-On CachyOS, install the package:
+On CachyOS, run the AppImage, with nothing to install:
 
 ```sh
-sudo pacman -U mynotes-0.1.0.pacman
+chmod +x MyNotes-x86_64.AppImage
+./MyNotes-x86_64.AppImage
 ```
 
-Or take the AppImage, with nothing to install:
+Or build an Arch package with `npm run dist` in the dev container and install it:
 
 ```sh
-chmod +x MyNotes-0.1.0.AppImage
-./MyNotes-0.1.0.AppImage
+sudo pacman -U release/mynotes-0.1.0.pacman
 ```
 
 ### Where your data lives

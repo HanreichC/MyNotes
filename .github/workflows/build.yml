@@ -1,12 +1,33 @@
 name: Build
 
+# Every push to main is a release vX.Y.N, once the tests pass on both systems
 on:
   push:
-    paths-ignore: ['**.md', 'docs/**']
+    branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # the version counts commits
+      # MAJOR.MINOR from package.json plus the commits since it last changed, the same formula as MyPods.
+      # Purely numeric and only ever growing, so an MSI can update the one before it.
+      - id: version
+        run: |
+          base=$(git log -1 --format=%H -G'^\s*"version":' -- package.json)
+          major_minor=$(node -p "require('./package.json').version.split('.').slice(0, 2).join('.')")
+          echo "version=$major_minor.$(git rev-list --count "$base..HEAD")" >> "$GITHUB_OUTPUT"
+
   windows:
+    needs: version
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v5
@@ -15,24 +36,58 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run e2e
-      - run: npm run dist
+        env:
+          MYNOTES_SHOTS: shots
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: windows-screenshots
+          path: shots/
+      - run: npx electron-builder --win msi "-c.extraMetadata.version=${{ needs.version.outputs.version }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: MyNotes-Windows
-          path: release/*.exe
+          name: windows
+          path: release/MyNotes-x64.msi
+          if-no-files-found: error
 
   linux:
+    needs: version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      # The Arch container, so the pacman package and the tests match CachyOS
+      # The Arch container, so the tests match CachyOS
       - run: docker build -t mynotes-dev .devcontainer
       - run: >
-          docker run --rm -v "$PWD:/workspace" -v mynotes-modules:/workspace/node_modules -w /workspace -e CI=1 mynotes-dev bash -c
-          'npm ci && npm test && node build.mjs && xvfb-run -a node tests/e2e.mjs && npx electron-builder'
+          docker run --rm -v "$PWD:/workspace" -v mynotes-modules:/workspace/node_modules -w /workspace -e CI=1
+          -e MYNOTES_SHOTS=/workspace/shots -e VERSION=${{ needs.version.outputs.version }} mynotes-dev bash -c
+          'npm ci && npm test && node build.mjs && xvfb-run -a -s "-screen 0 1400x900x24" node tests/e2e.mjs
+          && npx electron-builder --linux AppImage "-c.extraMetadata.version=$VERSION"'
+      # xvfb's default screen is smaller than the window's minimum size: the tree scrolls and drags hit the wrong row
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: linux-screenshots
+          path: shots/
       - uses: actions/upload-artifact@v4
         with:
-          name: MyNotes-Linux
-          path: |
-            release/*.AppImage
-            release/*.pacman
+          name: linux
+          path: release/MyNotes-x86_64.AppImage
+          if-no-files-found: error
+
+  release:
+    if: github.event_name == 'push'
+    needs: [version, windows, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      # A re-run finds the release already there and only replaces its files
+      - run: |
+          tag=v${{ needs.version.outputs.version }}
+          files="MyNotes-x64.msi MyNotes-x86_64.AppImage"
+          gh release create "$tag" $files --target "$GITHUB_SHA" --title "MyNotes ${{ needs.version.outputs.version }}" --generate-notes \
+            || gh release upload "$tag" $files --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}

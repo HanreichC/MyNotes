@@ -183,7 +183,7 @@ Renderer mit `sandbox` und `contextIsolation`, kein Node im Renderer, strenge CS
 | 4 | CodeMirror und JSON-Formatierer | Code-Tabs komplett, `e2e` grün |
 | 5 | TipTap mit Schutz aus § 4 | Rundlauf-Test über Beispieldateien grün |
 | 6 | Verlauf, Papierkorb, Einstellungen, Sicherungsort, Suche | Alles über die Oberfläche erreichbar |
-| 7 | Pakete: Windows-Installer, AppImage, Arch-Paket, CI | Pakete gebaut, Test unter Linux im Container grün |
+| 7 | Pakete: MSI, AppImage, Arch-Paket, CI mit Release bei jedem Push auf `main` | Pakete gebaut, Test unter Linux im Container grün |
 | 8 | Styleguide-Checkliste § 14 | Alle Modi per Screenshot geprüft |
 
 **Stand 2026-11-04:** Schritte 1 bis 8 sind umgesetzt. Unit-Tests und `tests/e2e.mjs` laufen unter Windows 11 und im Arch-Container, jeweils auch gegen die gepackte App. Offen, weil nur am echten Gerät prüfbar:
@@ -191,7 +191,7 @@ Renderer mit `sandbox` und `contextIsolation`, kein Node im Renderer, strenge CS
 - Fenstergröße mit der echten Maus ändern. Windows meldet die Randzonen korrekt, der Zug selbst ist ungetestet.
 - Lauf auf CachyOS unter Wayland mit echter GPU. Getestet ist Arch unter Xvfb.
 - Stromausfall (§ 3.6).
-- Der CI-Workflow `.github/workflows/build.yml` ist noch nie gelaufen.
+- Update per MSI über eine ältere Version und die erste Installation auf einem frischen Rechner. Das MSI selbst ist gebaut, und sein entpackter Inhalt besteht den End-to-End-Test.
 
 ## 9. Später, wenn es fehlt
 
