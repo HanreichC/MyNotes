@@ -15,7 +15,7 @@ svg { display: block; }
 
 /* ---------------------------------------------------------------- window (W-1) */
 #window {
-  position: fixed; inset: 0; display: flex; gap: var(--ms-size-window-inset); padding: var(--ms-size-window-inset);
+  position: fixed; inset: 0; display: grid; grid-template: var(--ms-size-bar-height) minmax(0, 1fr) / var(--side-w) minmax(0, 1fr); gap: var(--ms-size-window-inset); padding: var(--ms-size-window-inset);
   border-radius: var(--ms-radius-window); overflow: hidden;
   background: linear-gradient(var(--ms-color-background-top), var(--ms-color-background-bottom));
   box-shadow: inset 0 0 0 1px var(--ms-color-glass-popup-border);
@@ -27,8 +27,7 @@ svg { display: block; }
 
 /* ---------------------------------------------------------------- sidebar */
 /* The wiki tree is the main tool here, so it goes deeper than 2 levels and can be widened (exception to § 9.1). */
-#sidebar { flex: none; width: var(--side-w); display: flex; flex-direction: column; min-height: 0; padding: var(--ms-space-l) var(--ms-space-s) 14px; }
-.side-head { padding: 0 var(--ms-space-s) var(--ms-space-m); -webkit-app-region: drag; }
+#sidebar { display: flex; flex-direction: column; min-height: 0; padding: var(--ms-space-l) var(--ms-space-s) 14px; }
 .side-tools { display: flex; align-items: center; gap: var(--ms-space-xxs); padding: 0 var(--ms-space-xxs) var(--ms-space-s); }
 .side-tools .ms-field { flex: 1; min-width: 0; }
 #tree { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 1px; padding: 2px; }
@@ -62,10 +61,14 @@ svg { display: block; }
 #side-resize:focus-visible { outline: none; background: linear-gradient(to right, transparent 5px, var(--ms-color-focus-ring) 5px, var(--ms-color-focus-ring) 7px, transparent 7px); }
 
 /* ---------------------------------------------------------------- top bar */
-#main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--ms-space-s); }
-#topbar { flex: none; display: flex; gap: var(--ms-space-s); height: var(--ms-size-bar-height); }
-#tabs { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--ms-space-xxs); padding: 0 6px; -webkit-app-region: drag; }
-#tab-list { display: flex; align-items: center; gap: var(--ms-space-xxs); min-width: 0; height: 100%; overflow-x: auto; scrollbar-width: none; -webkit-app-region: no-drag; padding: 0 var(--ms-space-xxs); }
+#main { min-width: 0; display: flex; flex-direction: column; gap: var(--ms-space-s); }
+/* The whole bar moves the window, everything clickable opts out. */
+#topbar { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--ms-size-window-inset); -webkit-app-region: drag; }
+/* Its column keeps a free stretch however many tabs are open, and the tabs start level with the editor. It comes after #tabs in the
+   DOM on purpose: Chromium takes a scrolled #tab-list's no-drag area unclipped, so it covers this column too unless a later element claims it back. */
+#app-name { order: -1; flex: none; width: var(--side-w); padding-left: var(--ms-space-l); user-select: none; -webkit-app-region: drag; }
+#tabs { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--ms-space-xxs); height: 100%; }
+#tab-list { display: flex; align-items: center; gap: var(--ms-space-xxs); min-width: 0; height: 100%; overflow-x: auto; scrollbar-width: none; -webkit-app-region: no-drag; }
 .tab {
   flex: none; display: flex; align-items: center; gap: var(--ms-space-xxs); max-width: 220px; height: var(--ms-size-window-button); padding: 0 var(--ms-space-xs) 0 var(--ms-space-m);
   border-radius: var(--ms-radius-capsule);
@@ -90,7 +93,6 @@ svg { display: block; }
 .round-btn:active { background: var(--ms-color-fill-secondary); }
 .round-btn--s { width: var(--ms-size-control-desktop); height: var(--ms-size-control-desktop); padding: 7px; }
 .round-btn.ms-button--close:hover { background: var(--ms-color-system-red); color: #FFFFFF; }
-#win-grip { width: 30px; height: 100%; display: grid; place-items: center; padding: 15px 7px; color: var(--ms-color-label-secondary); cursor: grab; -webkit-app-region: drag; }
 
 /* ---------------------------------------------------------------- messages */
 #banner { flex: none; display: flex; flex-direction: column; gap: var(--ms-space-xs); }

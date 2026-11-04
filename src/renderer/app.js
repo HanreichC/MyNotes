@@ -955,7 +955,6 @@ function wire() {
   iconize('new-note', 'plus');
   iconize('tab-new', 'plus');
   iconize('win-menu', 'more');
-  iconize('win-grip', 'grip');
   iconize('win-min', 'minus');
   iconize('win-max', 'maximize');
   iconize('win-close', 'close');

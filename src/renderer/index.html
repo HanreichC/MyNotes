@@ -8,8 +8,21 @@
 </head>
 <body>
 <div id="window">
+  <header id="topbar" class="ms-glass ms-glass--capsule">
+    <div id="tabs" role="tablist" aria-label="Offene Notizen">
+      <div id="tab-list" class="ms-scroll"></div>
+      <button id="tab-new" class="icon-btn" aria-label="Neuer Tab" title="Neuer Tab (Strg+T)"></button>
+    </div>
+    <span id="app-name" class="ms-title2">MyNotes</span>
+    <div id="window-buttons">
+      <button id="win-menu" class="round-btn" aria-label="Befehle" title="Befehle (Strg+Umschalt+P)"></button>
+      <button id="win-min" class="round-btn" aria-label="Minimieren" title="Minimieren"></button>
+      <button id="win-max" class="round-btn" aria-label="Maximieren" title="Maximieren"></button>
+      <button id="win-close" class="round-btn ms-button--close" aria-label="Schließen" title="Schließen"></button>
+    </div>
+  </header>
+
   <aside id="sidebar" class="ms-glass" aria-label="Notizen">
-    <div class="side-head"><span class="ms-title2">MyNotes</span></div>
     <div class="side-tools">
       <input id="filter" class="ms-field" type="search" placeholder="Filtern" aria-label="Notizen filtern">
       <button id="new-folder" class="icon-btn" aria-label="Neuer Ordner" title="Neuer Ordner"></button>
@@ -25,19 +38,6 @@
   </aside>
 
   <main id="main">
-    <header id="topbar">
-      <div id="tabs" class="ms-glass ms-glass--capsule" role="tablist" aria-label="Offene Notizen">
-        <div id="tab-list" class="ms-scroll"></div>
-        <button id="tab-new" class="icon-btn" aria-label="Neuer Tab" title="Neuer Tab (Strg+T)"></button>
-      </div>
-      <div id="window-buttons" class="ms-glass ms-glass--capsule">
-        <button id="win-menu" class="round-btn" aria-label="Befehle" title="Befehle (Strg+Umschalt+P)"></button>
-        <div id="win-grip" title="Fenster verschieben" aria-hidden="true"></div>
-        <button id="win-min" class="round-btn" aria-label="Minimieren" title="Minimieren"></button>
-        <button id="win-max" class="round-btn" aria-label="Maximieren" title="Maximieren"></button>
-        <button id="win-close" class="round-btn ms-button--close" aria-label="Schließen" title="Schließen"></button>
-      </div>
-    </header>
     <div id="banner" hidden role="alert"></div>
     <section id="editors" class="ms-card"></section>
     <footer id="status" class="ms-caption ms-num">

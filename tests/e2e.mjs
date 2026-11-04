@@ -64,6 +64,15 @@ const newTab = async (page) => {
 
 let { app, page } = await launch();
 try {
+  // ---------- title bar: across the whole window without a grip; #app-name must follow #tabs in the DOM, or a scrolled tab list takes its drag area away
+  const bar = await page.evaluate(() => {
+    const r = document.querySelector('#topbar').getBoundingClientRect();
+    const [tabs, name] = ['#tabs', '#app-name'].map((s) => document.querySelector(s));
+    return { left: r.left, right: innerWidth - r.right, grip: !!document.querySelector('#win-grip'), nameAfterTabs: !!(tabs.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING) };
+  });
+  assert.deepEqual(bar, { left: bar.right, right: bar.left, grip: false, nameAfterTabs: true });
+  step('title bar across the window');
+
   // ---------- WYSIWYG: typing Markdown shortcuts formats live, the file holds Markdown
   await page.click('.prose');
   await page.keyboard.type('# Projektplan\nErster **fetter** Absatz\n');
