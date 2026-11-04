@@ -136,7 +136,7 @@ svg { display: block; }
 .prose th { background: var(--ms-color-fill-tertiary); font-weight: 600; }
 .prose th p, .prose td p { margin: 0; }
 .prose .selectedCell::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: color-mix(in srgb, var(--ms-color-accent) 20%, transparent); }
-.prose > p:only-child:has(> br.ProseMirror-trailingBreak)::before { content: "Einfach lostippen. / öffnet das Blockmenü."; position: absolute; color: var(--ms-color-label-tertiary); pointer-events: none; }
+.prose-host.is-empty .prose > p:first-child::before { content: "Einfach lostippen. / öffnet das Blockmenü."; position: absolute; color: var(--ms-color-label-tertiary); pointer-events: none; }
 .find-hit { background: color-mix(in srgb, var(--ms-color-system-yellow) 40%, transparent); border-radius: var(--ms-space-xxs); }
 .find-hit--on { background: color-mix(in srgb, var(--ms-color-system-orange) 55%, transparent); }
 .prose .hljs-keyword, .prose .hljs-selector-tag, .prose .hljs-built_in, .prose .hljs-type { color: var(--ms-color-system-purple); }
@@ -154,7 +154,7 @@ svg { display: block; }
 .tool-btn:hover { background: var(--ms-color-fill-tertiary); }
 .tool-btn.is-on { color: var(--ms-color-accent-text); background: var(--ms-color-fill-tertiary); }
 .tool-btn--text { width: auto; padding: 0 10px; font-size: var(--ms-typography-desktop-caption-size); font-weight: 500; }
-.slash-menu { position: fixed; z-index: 40; max-height: 320px; overflow-y: auto; animation: appear var(--ms-motion-duration-fade) var(--ms-motion-easing-standard); }
+.slash-menu { position: fixed; z-index: 40; max-height: min(360px, 60vh); overflow-y: auto; animation: appear var(--ms-motion-duration-fade) var(--ms-motion-easing-standard); }
 
 /* ---------------------------------------------------------------- status bar */
 #status { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--ms-space-m); min-height: var(--ms-size-hit-min-desktop); padding: 0 var(--ms-space-m); color: var(--ms-color-label-secondary); }

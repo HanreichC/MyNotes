@@ -360,11 +360,14 @@ export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmp
         return true;
       },
     },
-    onUpdate: () => { slash.check(); toolbar.update(); onChange(); },
+    onUpdate: () => { paintEmpty(); slash.check(); toolbar.update(); onChange(); },
     onSelectionUpdate: () => { slash.check(); toolbar.update(); onCursor(); },
     onFocus: () => toolbar.update(),
     onBlur: () => toolbar.hide(),
   });
+
+  function paintEmpty() { host.classList.toggle('is-empty', editor.isEmpty); }
+  paintEmpty();
 
   async function insertImage(file) {
     try {
@@ -388,7 +391,7 @@ export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmp
   return {
     kind: 'rich',
     getText: () => trimEnd(editor.getMarkdown()),
-    setText(next) { editor.commands.setContent(next, { contentType: 'markdown', emitUpdate: false }); },
+    setText(next) { editor.commands.setContent(next, { contentType: 'markdown', emitUpdate: false }); paintEmpty(); },
     focus: () => editor.view.focus(), // at once: commands.focus() waits a frame, and keys typed right after Ctrl+T would miss
     destroy() { slash.destroy(); toolbar.destroy(); editor.destroy(); host.remove(); },
     setWrap() {},

@@ -55,6 +55,12 @@ const kill = async (app) => {
   await new Promise((r) => setTimeout(r, 300));
 };
 const tabNames = (page) => page.$$eval('.tab-name', (n) => n.map((x) => x.textContent));
+/** Ctrl+T, then wait for the new tab itself: its title alone can also be the title of the tab before. */
+const newTab = async (page) => {
+  const before = await page.$eval('.pane:not([hidden])', (n) => n.dataset.doc);
+  await page.keyboard.press('Control+t');
+  await page.waitForFunction((id) => document.querySelector('.pane:not([hidden])')?.dataset.doc !== id, before);
+};
 
 let { app, page } = await launch();
 try {
@@ -170,8 +176,7 @@ try {
   step(`${corpus.length} Markdown samples open live and unchanged`);
 
   // ---------- blank lines come back after a reload, and the file does not grow with every save
-  await page.keyboard.press('Control+t');
-  await page.waitForFunction(() => document.querySelector('.tab.is-active .tab-name')?.textContent === 'Unbenannt');
+  await newTab(page);
   await page.keyboard.type('Zeile eins\n\n\nZeile zwei\n\n\n');
   const paragraphs = () => page.$$eval('.pane:not([hidden]) .prose > p', (n) => n.map((p) => p.textContent));
   const typed = (await paragraphs()).slice(0, 4);
@@ -192,9 +197,61 @@ try {
   assert.equal((await paragraphs()).length, typed.length, 'editing does not add blank lines');
   step('blank lines survive reloading and do not accumulate');
 
+  // ---------- typing without a pause still reaches the journal while it happens
+  await newTab(page);
+  const docId = await page.$eval('.pane:not([hidden])', (n) => n.dataset.doc);
+  const typing = page.keyboard.type('Ohne Pause getippt und trotzdem laufend gesichert', { delay: 40 });
+  await new Promise((r) => setTimeout(r, 900));
+  const midway = (await fs.readFile(path.join(data, 'journal', `${docId}.log`), 'utf8')).split('\n').filter((l) => l.includes('"t":"d"')).length;
+  await typing;
+  assert.ok(midway >= 2, `only ${midway} journal records after 900 ms of steady typing`); // a restarted timer would give 0
+  step(`steady typing reaches the journal while it happens (${midway} records in 900 ms)`);
+
+  // ---------- find and replace in the live editor
+  await page.keyboard.press('Control+f');
+  const findBar = '.pane:not([hidden]) .find-bar';
+  await page.waitForSelector(`${findBar}:not([hidden])`);
+  await page.keyboard.type('getippt');
+  await page.waitForSelector('.pane:not([hidden]) .find-hit--on');
+  await page.fill(`${findBar} input[aria-label="Ersetzen"]`, 'geschrieben');
+  await page.click(`${findBar} >> text=Alle ersetzen`);
+  await until(async () => (await page.textContent('.pane:not([hidden]) .prose')).includes('Ohne Pause geschrieben'), 'replaced');
+  await page.keyboard.press('Escape');
+  step('find and replace in the live editor');
+
+  // ---------- a pasted image lands in the notes folder, shows up and stays in the Markdown
+  await page.click('.pane:not([hidden]) .prose');
+  await page.keyboard.press('Control+End');
+  await page.evaluate(async () => {
+    const canvas = Object.assign(document.createElement('canvas'), { width: 8, height: 8 });
+    canvas.getContext('2d').fillRect(0, 0, 8, 8);
+    const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
+    const data = new DataTransfer();
+    data.items.add(new File([blob], 'punkt.png', { type: 'image/png' }));
+    document.querySelector('.pane:not([hidden]) .prose').dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await page.waitForSelector('.pane:not([hidden]) .prose img');
+  await page.waitForFunction(() => document.querySelector('.pane:not([hidden]) .prose img').naturalWidth === 8);
+  await page.keyboard.press('Control+s');
+  await until(async () => (await read('Eingang/Ohne Pause geschrieben und trotzdem laufend gesichert.md').catch(() => '')).includes('.mynotes/assets/'), 'image in the Markdown');
+  assert.equal((await fs.readdir(path.join(vault, '.mynotes', 'assets'))).length, 1);
+  assert.equal(await page.$eval('.pane:not([hidden]) .prose-host', (n) => n.classList.contains('is-empty')), false, 'placeholder over a note with content');
+  step('pasted image is stored, displayed and kept in the Markdown');
+
+  // ---------- code editor: Notepad++ keys and several cursors
+  await newTab(page);
+  await page.keyboard.press('Control+/');
+  await page.waitForSelector('.pane:not([hidden]) .cm-editor');
+  await page.keyboard.type('alpha');
+  await page.keyboard.press('Control+d');
+  await until(async () => (await page.$$eval('.pane:not([hidden]) .cm-line', (n) => n.map((l) => l.textContent))).join() === 'alpha,alpha', 'line duplicated');
+  await page.click('.pane:not([hidden]) .cm-line:first-child', { modifiers: ['Control'] });
+  await until(async () => (await page.textContent('#st-pos')).includes('2 Cursor'), 'second cursor');
+  await page.keyboard.press('Escape');
+  step('Ctrl+D duplicates a line, Ctrl+click adds a cursor');
+
   // ---------- slash menu and floating toolbar
-  await page.keyboard.press('Control+t');
-  await page.waitForFunction(() => document.querySelector('.tab.is-active .tab-name')?.textContent === 'Unbenannt');
+  await newTab(page);
   await page.keyboard.type('Plan fürs Team\n/Tabe');
   await page.waitForSelector('.slash-menu:not([hidden])');
   await shot(page, '9-slash');

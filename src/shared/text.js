@@ -66,7 +66,10 @@ export const nameFromText = (text, ext) => (/^\.(md|markdown|txt)$/i.test(ext) ?
 /** The note's title: the first line that has any text, without its Markdown markers. */
 export function titleOf(text) {
   for (const line of text.split('\n', 50)) {
-    const t = line.replace(/^\s*(#{1,6}\s+|>\s*|[-*+]\s+(\[[ xX]\]\s+)?|\d+[.)]\s+)*/, '').replace(/[*_`~]/g, '').trim();
+    const t = line
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // an image says nothing about the title
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // of a link, only its text does
+      .replace(/^\s*(#{1,6}\s+|>\s*|[-*+]\s+(\[[ xX]\]\s+)?|\d+[.)]\s+)*/, '').replace(/[*_`~]/g, '').trim();
     if (/[\p{L}\p{N}]/u.test(t)) return safeName(t);
   }
   return 'Unbenannt';

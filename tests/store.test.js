@@ -431,6 +431,22 @@ test('changing the notes folder copies and verifies, overwrites nothing, leaves 
   await assert.rejects(store.changeVault(path.join(next, 'innen')));
 });
 
+test('a file outside the notes folder keeps its encoding and line endings, and no second tab', async () => {
+  const s = await sandbox();
+  const outside = path.join(s.root, 'log.txt');
+  await fs.writeFile(outside, Buffer.from('﻿eins\r\nzwei\r\n', 'utf16le'));
+  const { store } = await boot(s);
+  const doc = await store.openExternal(outside);
+  assert.equal(doc.text, 'eins\nzwei\n');
+  assert.equal((await store.openExternal(outside)).id, doc.id);
+  await store.update(doc.id, 'eins\nzwei\ndrei\n');
+  await store.commit(doc.id);
+  assert.deepEqual(await fs.readFile(outside), Buffer.from('﻿eins\r\nzwei\r\ndrei\r\n', 'utf16le'));
+  assert.ok((await store.history({ id: doc.id })).length >= 1);
+  await store.shutdown();
+  assert.deepEqual(await fs.readdir(s.vault), []);
+});
+
 test('a journal nobody can read is kept, not deleted', async () => {
   const s = await sandbox();
   await fs.mkdir(path.join(s.dataDir, 'journal'), { recursive: true });

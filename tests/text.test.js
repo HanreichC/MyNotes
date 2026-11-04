@@ -77,6 +77,9 @@ test('titles come from the first line with text', () => {
   assert.equal(titleOf('- [x] **Erledigt** _heute_'), 'Erledigt heute');
   assert.equal(titleOf('> Zitat'), 'Zitat');
   assert.equal(titleOf('1. Erstens'), 'Erstens');
+  assert.equal(titleOf('Notiz![Bild](.mynotes/assets/a.png)'), 'Notiz');
+  assert.equal(titleOf('![Bild](a.png)\nZweite Zeile'), 'Zweite Zeile');
+  assert.equal(titleOf('Siehe [die Doku](https://example.com/a?b=1) hier'), 'Siehe die Doku hier');
   assert.equal(titleOf('{\n"name": "x"\n}'), 'name x');
   assert.equal(titleOf('---\n***'), 'Unbenannt');
   assert.equal(titleOf(''), 'Unbenannt');

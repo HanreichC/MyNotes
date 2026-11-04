@@ -69,8 +69,8 @@ const flushAll = () => Promise.all(state.tabs.map(send));
 
 function changed(tab) {
   if (tab.silent) return;
-  clearTimeout(tab.timer);
-  tab.timer = setTimeout(() => send(tab), tab.doc.text.length > 1_000_000 ? 1000 : 150);
+  // Not restarted by the next key: whoever types without a pause is still saved every 150 ms.
+  tab.timer ??= setTimeout(() => send(tab), tab.doc.text.length > 1_000_000 ? 1000 : 150);
   paintPosition();
   saveSessionSoon();
 }
