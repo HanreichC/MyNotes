@@ -56,6 +56,40 @@ const TaskShortcut = Extension.create({
   },
 });
 
+/**
+ * A tab at the start of a line would come back as a code block when the Markdown is read again, and spaces would vanish.
+ * Two em spaces survive that and read as an indent, so that is what Tab means in running text.
+ */
+const INDENT = '  ';
+
+/** Below the lists, tables and code blocks, which use Tab themselves: this is what is left when they have no use for the key. */
+const TabKey = Extension.create({
+  name: 'tabKey',
+  priority: 10,
+  addKeyboardShortcuts() {
+    const blocks = (fn) => {
+      const { state, view } = this.editor;
+      const tr = state.tr;
+      state.doc.nodesBetween(state.selection.from, state.selection.to, (node, pos) => {
+        if (!node.isTextblock) return true;
+        if (node.type.name !== 'codeBlock') fn(tr, node, tr.mapping.map(pos + 1));
+        return false;
+      });
+      if (tr.docChanged) view.dispatch(tr);
+      return true; // always taken: Esc, then Tab, is the way out of the editor (createMdEditor)
+    };
+    return {
+      Tab: () => {
+        if (this.editor.isActive('listItem') || this.editor.isActive('taskItem')) return true; // the first item has nothing to go under
+        if (!this.editor.state.selection.empty) return blocks((tr, _node, at) => tr.insertText(INDENT, at));
+        this.editor.view.dispatch(this.editor.state.tr.insertText(INDENT));
+        return true;
+      },
+      'Shift-Tab': () => blocks((tr, node, at) => { if (node.textContent.startsWith(INDENT)) tr.delete(at, at + INDENT.length); }),
+    };
+  },
+});
+
 // ---------------------------------------------------------------- find and replace
 
 const findKey = new PluginKey('find');
@@ -309,6 +343,13 @@ export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmp
   let pasteAsCode = false;
   const host = el('div', { class: 'prose-host ms-scroll' });
   parent.append(host);
+  // Tab belongs to the text now, so the keyboard needs another way out (A-2): Esc, then Tab within 2 s, as in the code editor.
+  let tabLeavesUntil = 0;
+  host.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') tabLeavesUntil = Date.now() + 2000;
+    else if (e.key === 'Tab' && Date.now() <= tabLeavesUntil) e.stopPropagation();
+    else if (!['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) tabLeavesUntil = 0;
+  }, true);
 
   const editor = new Editor({
     element: host,
@@ -321,10 +362,11 @@ export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmp
       TableKit.configure({ table: { resizable: false } }),
       TaskList,
       TaskItem.configure({ nested: true }),
-      CodeBlockLowlight.configure({ lowlight, defaultLanguage: null }),
+      CodeBlockLowlight.configure({ lowlight, defaultLanguage: null, enableTabIndentation: true, tabSize: 2 }),
       NoteImage.configure({ inline: true }),
       FindPlugin,
       TaskShortcut,
+      TabKey,
     ],
     editorProps: {
       attributes: { class: 'prose', 'aria-label': 'Notiz', role: 'textbox', 'aria-multiline': 'true' },

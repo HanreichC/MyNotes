@@ -1,6 +1,6 @@
 // The Notepad++ half: CodeMirror keeps text exactly as it is. For code, JSON, plain text and Markdown source.
-import { copyLineDown, deleteLine, isolateHistory, moveLineDown, moveLineUp } from '@codemirror/commands';
-import { HighlightStyle, LanguageDescription, syntaxHighlighting } from '@codemirror/language';
+import { copyLineDown, deleteLine, indentLess, indentMore, isolateHistory, moveLineDown, moveLineUp } from '@codemirror/commands';
+import { HighlightStyle, indentUnit, LanguageDescription, syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { goToNextChunk, goToPreviousChunk, MergeView } from '@codemirror/merge';
 import { gotoLine, openSearchPanel, search } from '@codemirror/search';
@@ -78,6 +78,31 @@ export const lineCommands = {
   dropEmpty: (lines) => lines.filter((l) => l.trim()),
 };
 
+/**
+ * A file keeps its own indentation: Tab and Enter follow the first indented line, and a tab if there is none yet.
+ * Otherwise a Makefile gets spaces, and a tab followed by Enter gets spaces on the next line.
+ * ponytail: only looks at the first 1000 lines, so a huge file without indentation does not cost a scan per keystroke.
+ */
+const fileIndent = indentUnit.compute(['doc'], ({ doc }) => {
+  for (let n = 1; n <= Math.min(doc.lines, 1000); n++) {
+    const found = /^(\t| {2,})/.exec(doc.line(n).text);
+    if (found) return found[1];
+  }
+  return '\t';
+});
+
+/** As in Notepad++: inserts at the cursor, indents whole lines when something is selected. Esc, then Tab, leaves the editor. */
+const tabKey = {
+  key: 'Tab',
+  shift: indentLess,
+  run(view) {
+    const { state } = view;
+    if (state.selection.ranges.some((r) => !r.empty)) return indentMore(view);
+    view.dispatch(state.update(state.replaceSelection(state.facet(indentUnit)), { scrollIntoView: true, userEvent: 'input' }));
+    return true;
+  },
+};
+
 function codeSetup({ wrap, onChange, onCursor, onPaste }) {
   const wrapping = new Compartment();
   const language = new Compartment();
@@ -85,7 +110,9 @@ function codeSetup({ wrap, onChange, onCursor, onPaste }) {
     wrapping,
     language,
     extensions: [
+      fileIndent,
       Prec.high(keymap.of([
+        tabKey,
         { key: 'Mod-d', run: copyLineDown, preventDefault: true }, // as in Notepad++
         { key: 'Mod-l', run: deleteLine, preventDefault: true },
         { key: 'Mod-Shift-ArrowUp', run: moveLineUp },

@@ -82,6 +82,8 @@ Type `# ` and you have a heading. `**bold**` turns bold and `- [ ] ` becomes a c
 
 `/` opens the block menu with headings, lists, checklists, quotes, code blocks, tables and dividers. Select text and a formatting bar appears. Inside a table, the same bar adds and removes rows and columns. A pasted image lands in the notes folder.
 
+`Tab` nests a list item, goes to the next table cell and indents in a code block. In running text it indents with two em spaces, because a real tab at the start of a line would turn it into a code block the next time the note is read.
+
 `Ctrl+/` shows the Markdown source of any note and switches back.
 
 > [!IMPORTANT]
@@ -120,6 +122,8 @@ Everything that isn't Markdown opens in the code editor, built on CodeMirror, wh
 | `Ctrl+F`, `Ctrl+H` | Find and replace, with regular expressions, in both editors |
 | `Ctrl+Shift+F` | Search all notes |
 | `Ctrl+S` | Write to the notes folder right now, if you can't help it |
+| `Tab`, `Shift+Tab` | Indent and take it back, a selection line by line |
+| `Esc`, then `Tab` | Leave the editor with the keyboard |
 | `Ctrl+D`, `Ctrl+L` | Duplicate line, delete line |
 | `Ctrl+Shift+↑` / `↓` | Move line |
 | `Alt` + drag, `Ctrl` + click | Column selection, several cursors |

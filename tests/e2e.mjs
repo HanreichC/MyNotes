@@ -659,6 +659,84 @@ try {
   await until(async () => !(await tabNames(page)).includes('eins zwei'), 'tab closed');
   step('lines next to the words in the status bar');
 
+  // ---------- the Tab key belongs to the text in both editors; Esc, then Tab, leaves them
+  const focusIn = (selector) => page.evaluate((s) => !!document.activeElement?.closest(s), selector);
+  await newTab(page);
+  await page.keyboard.type('vorne');
+  await new Promise((r) => setTimeout(r, 250)); // ProseMirror ignores one cursor move within 200 ms of getting the focus; nobody types that fast
+  await page.keyboard.press('Home');
+  await page.keyboard.press('Tab');
+  assert.ok(await focusIn('.prose'), 'Tab stays in the note');
+  const proseText = () => page.$eval('.pane:not([hidden]) .prose', (n) => n.textContent);
+  assert.equal(await proseText(), '  vorne');
+  await page.keyboard.press('Control+/');
+  await page.waitForSelector('.pane:not([hidden]) .cm-editor');
+  await page.keyboard.press('Control+/');
+  await page.waitForSelector('.pane:not([hidden]) .prose');
+  assert.equal(await page.$('.pane:not([hidden]) .prose pre'), null, 'read again it is no code block');
+  assert.equal(await proseText(), '  vorne', 'and the indent survives');
+  await page.click('.pane:not([hidden]) .prose p');
+  await page.keyboard.press('Shift+Tab');
+  assert.equal(await proseText(), 'vorne', 'Shift+Tab takes it back');
+  await page.keyboard.press('Control+a');
+  await page.keyboard.insertText('- eins');
+  await page.keyboard.press('Control+a');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.type('- eins');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('zwei');
+  await page.keyboard.press('Tab');
+  await until(() => page.$('.pane:not([hidden]) .prose li li'), 'Tab still nests a list item');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Tab');
+  assert.ok(!(await focusIn('.prose')), 'Esc, then Tab, leaves the note');
+  await page.click('.pane:not([hidden]) .prose');
+  await page.keyboard.press('Control+w');
+  await until(async () => !(await tabNames(page)).includes('eins'), 'note closed');
+
+  await newTab(page);
+  await page.keyboard.type('``` ');
+  await page.waitForSelector('.pane:not([hidden]) .prose pre');
+  await page.keyboard.type('x');
+  await page.keyboard.press('Tab');
+  await until(async () => (await page.$eval('.pane:not([hidden]) .prose pre', (n) => n.textContent)) === 'x  ', 'Tab indents in a code block');
+  await page.keyboard.press('Control+w');
+  await until(async () => !(await page.$('.pane:not([hidden]) .prose pre')), 'code block closed');
+
+  await newTab(page);
+  await page.keyboard.type('/tabelle');
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('.pane:not([hidden]) .prose table');
+  await page.keyboard.type('links');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('rechts');
+  assert.deepEqual(await page.$$eval('.pane:not([hidden]) .prose tr:first-child > *', (c) => c.slice(0, 2).map((x) => x.textContent)), ['links', 'rechts'], 'Tab goes to the next cell');
+  await page.keyboard.press('Control+w');
+  await until(async () => !(await page.$('.pane:not([hidden]) .prose table')), 'table closed');
+
+  await fs.writeFile(path.join(vault, 'vier.txt'), 'x\n    y\n');
+  await until(() => page.$('[data-path="vier.txt"]'), 'file in the tree');
+  await page.click('[data-path="vier.txt"]');
+  await page.waitForSelector('.tab.is-active:has-text("vier.txt")');
+  await page.click('.pane:not([hidden]) .cm-line:has-text("x")');
+  await page.keyboard.press('End');
+  await page.keyboard.press('Tab');
+  assert.ok(await focusIn('.cm-content'), 'Tab stays in the editor');
+  assert.equal((await firstLines(1))[0], 'x    ', 'a file indented with four spaces gets four spaces');
+  await page.keyboard.press('Control+a');
+  await page.keyboard.press('Tab');
+  assert.deepEqual(await firstLines(2), ['    x    ', '        y'], 'with a selection Tab indents the lines');
+  await page.keyboard.press('Shift+Tab');
+  assert.deepEqual(await firstLines(2), ['x    ', '    y']);
+  await page.keyboard.press('Control+End'); // with a selection, Esc first clears that
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Tab');
+  assert.ok(!(await focusIn('.cm-content')), 'Esc, then Tab, leaves the editor');
+  await page.click('.pane:not([hidden]) .cm-content');
+  await page.keyboard.press('Control+w');
+  await until(async () => !(await tabNames(page)).includes('vier.txt'), 'file closed');
+  step('the Tab key indents in both editors, Esc then Tab leaves them');
+
   // ---------- trash and restore
   await page.click('[data-path="korpus0.md"]', { button: 'right' });
   await page.click('text=In den Papierkorb legen');
