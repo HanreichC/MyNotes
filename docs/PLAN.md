@@ -140,7 +140,7 @@ TipTap erzeugt das Markdown beim Speichern neu. Aus `5 * 3` kann also `5 \* 3` w
 2. **Originalstand zuerst sichern.** Vor der ersten Änderung geht der unveränderte Text in den Verlauf.
 3. **Prüfung beim Öffnen.** Das Original und die neu erzeugte Fassung werden beide nach HTML umgewandelt und verglichen. Unterscheiden sie sich, etwa bei eingebettetem HTML, öffnet die Notiz in der Quelltextansicht mit einem Hinweis.
 4. **Quelltextansicht.** `Strg+/` schaltet jede Markdown-Notiz in CodeMirror um. Dort bleibt jedes Zeichen, wie es ist.
-5. **Einfügen.** JSON in einer leeren Notiz macht aus ihr eine `.json`-Datei im Code-Editor. JSON in einer gefüllten Notiz wird zum Code-Block. `Strg+Umschalt+V` fügt Text immer als Code-Block ein.
+5. **Einfügen.** JSON in einer leeren Notiz macht aus ihr eine `.json`-Datei im Code-Editor, JSON in einer gefüllten Notiz wird zum Code-Block, und in einer `.json`-Datei wird nach dem Einfügen die ganze Datei formatiert, wenn sie gültiges JSON ist. Alle drei Wege formatieren automatisch. In der `.json`-Datei nimmt `Strg+Z` nur das Formatieren zurück, sonst das ganze Einfügen. Beim Öffnen und beim Tippen wird nie formatiert, weil das von Hand gesetzte Layouts umschreiben würde. `Strg+Umschalt+V` fügt Text immer unverändert als Code-Block ein.
 
 ## 5. Funktionen der Version 1
 
@@ -152,7 +152,7 @@ TipTap erzeugt das Markdown beim Speichern neu. Aus `5 * 3` kann also `5 \* 3` w
 
 **Markdown:** Überschriften, Fett, Kursiv, Durchgestrichen, Inline-Code, Links, Listen, Checklisten, Zitate, Code-Blöcke mit Highlighting, Tabellen, Trennlinien, Bilder. Dazu Slash-Menü, Formatleiste bei Auswahl und Markdown-Kürzel beim Tippen.
 
-**JSON:** Pretty Print und Minify für Auswahl, Code-Block oder ganze Datei. Der Formatierer ändert nur Leerraum: Große Zahlen, `1.0` und doppelte Schlüssel bleiben erhalten. Fehler zeigen Zeile und Spalte. Einzug einstellbar, Kürzel `Strg+Alt+J` und `Strg+Alt+Umschalt+J`.
+**JSON:** Pretty Print und Minify für Auswahl, Code-Block oder ganze Datei. Der Formatierer ändert nur Leerraum: Große Zahlen, `1.0` und doppelte Schlüssel bleiben erhalten. Fehler zeigen Zeile und Spalte. Einzug einstellbar, Kürzel `Strg+Alt+J` und `Strg+Alt+Umschalt+J`, in `.json`-Dateien auch der Knopf „Formatieren“ in der Statusleiste.
 
 **Notepad++-Kern:** Syntax-Highlighting für die gängigen Sprachen, Suchen und Ersetzen mit Regex, Suche über alle Notizen, Mehrfachcursor und Spaltenauswahl, Zeilen duplizieren, verschieben, löschen und sortieren, Falten, Zeilenumbruch, Zeilennummern, Encoding und Zeilenenden anzeigen und ändern, externe Dateien öffnen.
 

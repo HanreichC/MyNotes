@@ -1,5 +1,5 @@
 // The Notepad++ half: CodeMirror keeps text exactly as it is. For code, JSON, plain text and Markdown source.
-import { copyLineDown, deleteLine, moveLineDown, moveLineUp } from '@codemirror/commands';
+import { copyLineDown, deleteLine, isolateHistory, moveLineDown, moveLineUp } from '@codemirror/commands';
 import { HighlightStyle, LanguageDescription, syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { goToNextChunk, goToPreviousChunk, MergeView } from '@codemirror/merge';
@@ -78,7 +78,7 @@ export const lineCommands = {
   dropEmpty: (lines) => lines.filter((l) => l.trim()),
 };
 
-function codeSetup({ wrap, onChange, onCursor }) {
+function codeSetup({ wrap, onChange, onCursor, onPaste }) {
   const wrapping = new Compartment();
   const language = new Compartment();
   return {
@@ -104,6 +104,7 @@ function codeSetup({ wrap, onChange, onCursor }) {
       EditorView.updateListener.of((u) => {
         if (u.docChanged) onChange();
         if (u.docChanged || u.selectionSet) onCursor();
+        if (u.transactions.some((tr) => tr.isUserEvent('input.paste'))) onPaste();
       }),
       EditorView.contentAttributes.of({ 'aria-label': 'Code-Editor' }),
     ],
@@ -152,8 +153,8 @@ function editorApi(view, { wrapping, language }, name, destroy) {
   return {
     kind: 'code',
     getText: () => view.state.doc.toString(),
-    /** Replaces everything but stays one undo step, so a formatter can be taken back. */
-    setText(next) { view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } }); },
+    /** Replaces everything as one undo step of its own, not merged with the paste just before it, so a formatter can be taken back alone. */
+    setText(next) { view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next }, annotations: isolateHistory.of('full') }); },
     setRename: setLanguage,
     focus: () => view.focus(),
     destroy,

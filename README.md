@@ -97,9 +97,11 @@ Type `# ` and you have a heading. `**bold**` turns bold and `- [ ] ` becomes a c
 
 </div>
 
-`Ctrl+Alt+J` formats the selection, the code block under the cursor or the whole file. `Ctrl+Alt+Shift+J` compresses it again.
+Paste JSON and it's formatted. In an empty note it turns the note into a `.json` file, in a note with text it becomes a code block, and in a `.json` file the whole file is formatted if the result is valid JSON. There, `Ctrl+Z` takes only the formatting back and keeps what you pasted. `Ctrl+Shift+V` pastes into a code block exactly as it is.
 
-Most formatters parse the JSON and print it back, which rounds `12345678901234567890`, turns `1.0` into `1` and drops duplicate keys. This one only touches whitespace. If the JSON is broken it changes nothing and tells you the line and column. JSON pasted into an empty note turns the note into a `.json` file, and JSON pasted into a note with text becomes a code block.
+Opening a file never formats it, so a layout someone arranged by hand stays. To format by hand, press `Ctrl+Alt+J` or `Formatieren` in the status bar of a `.json` file. The keys also work on the selection or the code block under the cursor, and `Ctrl+Alt+Shift+J` compresses it again.
+
+Most formatters parse the JSON and print it back, which rounds `12345678901234567890`, turns `1.0` into `1` and drops duplicate keys. This one only touches whitespace. If the JSON is broken it changes nothing and tells you the line and column.
 
 <br>
 

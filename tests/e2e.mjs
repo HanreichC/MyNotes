@@ -166,15 +166,73 @@ try {
     document.querySelector('.pane:not([hidden]) .prose').dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
   }, json);
   await page.waitForSelector('.pane:not([hidden]) .cm-editor');
-  await page.keyboard.press('Control+Alt+j');
-  await until(async () => (await page.textContent('.pane:not([hidden]) .cm-content')).includes('"big": 12345678901234567890'), 'pretty printed');
+  await until(async () => (await page.textContent('.pane:not([hidden]) .cm-content')).includes('"big": 12345678901234567890'), 'formatted without asking');
   await shot(page, '2-json');
   await page.keyboard.press('Control+s');
   await until(async () => {
     const f = (await fs.readdir(path.join(vault, 'Eingang'))).find((n) => n.endsWith('.json'));
     return f && (await read(`Eingang/${f}`)).includes('"f": 1.0');
   }, 'pretty JSON on disk');
-  step('JSON paste makes a .json file, pretty print keeps big numbers and 1.0');
+  step('JSON pasted into an empty note becomes a formatted .json file, big numbers and 1.0 intact');
+
+  // Pasting into a .json file formats it, Ctrl+Z takes that back, and both the keys and the button format by hand.
+  const codePaste = (text) => page.evaluate((t) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', t);
+    document.querySelector('.pane:not([hidden]) .cm-content').dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, text);
+  const firstLines = (n) => page.$$eval('.pane:not([hidden]) .cm-line', (ls, c) => ls.slice(0, c).map((l) => l.textContent), n);
+  const messy = '{\n\t\t\t\t"coord": {\n    "lon": 139.01\n  }\n}';
+  const tidy = ['{', '  "coord": {', '    "lon": 139.01'];
+  const asPasted = ['{', '\t\t\t\t"coord": {', '    "lon": 139.01'];
+  const showsLines = (want, what) => until(async () => JSON.stringify(await firstLines(3)) === JSON.stringify(want), what);
+  await page.click('.pane:not([hidden]) .cm-content');
+  await page.keyboard.press('Control+a');
+  await codePaste(messy);
+  await showsLines(tidy, 'a paste into a .json file is formatted');
+  await page.keyboard.press('Control+z');
+  await showsLines(asPasted, 'Ctrl+Z takes the formatting back and leaves the paste');
+  await page.keyboard.press('Control+Alt+j');
+  await showsLines(tidy, 'formatted with the keys');
+  await page.keyboard.press('Control+z');
+  await showsLines(asPasted, 'taken back again');
+  await page.click('#st-format');
+  await showsLines(tidy, 'formatted with the button');
+  await page.keyboard.press('Control+End');
+  await codePaste(',kaputt');
+  await until(async () => (await page.textContent('.pane:not([hidden]) .cm-content')).endsWith('},kaputt'), 'a paste that leaves broken JSON stays as it is');
+  await page.keyboard.press('Control+a');
+  await codePaste(json);
+  await until(async () => (await page.textContent('.pane:not([hidden]) .cm-content')).includes('"big": 12345678901234567890'), 'the first JSON back for the next steps');
+  step('a paste into a .json file is formatted, Ctrl+Z undoes it, keys and button do it by hand');
+
+  // Opening never formats: this layout was made by hand, and it stays until asked.
+  const byHand = '{ "liste": [1, 2, 3] }\n';
+  await fs.writeFile(path.join(vault, 'vonhand.json'), byHand);
+  await until(() => page.$('[data-path="vonhand.json"]'), 'file in the tree');
+  await page.click('[data-path="vonhand.json"]');
+  await until(async () => JSON.stringify(await firstLines(1)) === JSON.stringify(['{ "liste": [1, 2, 3] }']), 'shown as it is');
+  await flushAndWait();
+  assert.equal(await read('vonhand.json'), byHand, 'opening a .json file writes nothing');
+  assert.equal(await page.isVisible('#st-format'), true);
+  await page.keyboard.press('Control+w');
+  await until(async () => (await tabNames(page)).length === 2, 'tab closed');
+
+  // JSON pasted into a note with text: a formatted code block. Ctrl+Shift+V stays "exactly as it is".
+  await page.keyboard.press('Control+t');
+  await until(async () => (await tabNames(page)).length === 3, 'a note');
+  assert.equal(await page.isVisible('#st-format'), false, 'the button is for JSON files');
+  await page.keyboard.type('Text davor');
+  await page.keyboard.press('Enter');
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.setData('text/plain', '{"a":[1]}');
+    document.querySelector('.pane:not([hidden]) .prose').dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await until(async () => (await page.$eval('.pane:not([hidden]) .prose pre', (n) => n.textContent)) === '{\n  "a": [\n    1\n  ]\n}', 'a formatted code block');
+  await page.keyboard.press('Control+w');
+  await until(async () => (await tabNames(page)).length === 2, 'note closed');
+  step('opening a .json file formats nothing; JSON pasted into a note is a formatted code block');
 
   // ---------- invalid JSON changes nothing and says where
   await page.keyboard.press('Control+t');

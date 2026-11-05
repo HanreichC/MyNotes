@@ -1,5 +1,5 @@
 // The window: tabs, tree, commands. Text only ever reaches the disk through window.api.update (see store.js).
-import { JsonError, minifyJson, prettyJson } from '../shared/json.js';
+import { isJson, JsonError, minifyJson, prettyJson } from '../shared/json.js';
 import { nameFromText } from '../shared/text.js';
 import { createCodeEditor, createCompareEditors, lineCommands } from './code-editor.js';
 import { icon } from './icons.js';
@@ -10,6 +10,7 @@ const api = window.api;
 const $ = (id) => document.getElementById(id);
 const RICH_LIMIT = 2 * 1024 * 1024; // above this the WYSIWYG view gets slow: open the source instead
 const isMd = (doc) => /^\.(md|markdown)$/i.test(doc.ext);
+const isJsonFile = (doc) => /^\.json$/i.test(doc.ext);
 
 const state = {
   tabs: [], activeId: null, split: null /* [left id, right id], one of them the active tab */, tree: { items: [], online: true }, expanded: new Set(), filter: '', settings: null,
@@ -138,7 +139,7 @@ function ensureEditor(tab) {
   const onChange = () => changed(tab);
   const onCursor = () => { if (tab.id === state.activeId) paintPosition(); saveSessionSoon(); };
   const code = () => createCodeEditor({
-    parent: tab.pane, text: tab.doc.text, name: tab.doc.name, wrap: state.settings.wrap, onChange, onCursor,
+    parent: tab.pane, text: tab.doc.text, name: tab.doc.name, wrap: state.settings.wrap, onChange, onCursor, onPaste: () => formatPasted(tab),
   });
   if (tab.mode === 'rich' && tab.doc.text.length > RICH_LIMIT) tab.mode = 'code';
   if (tab.mode === 'rich') {
@@ -148,7 +149,7 @@ function ensureEditor(tab) {
       tab.silent = true;
       tab.editor = createMdEditor({
         parent: tab.pane, text: tab.doc.text, onChange, onCursor, onImageError: (m) => banner({ kind: 'warning', text: m }),
-        onJsonIntoEmpty: (text) => becomeJson(tab, text),
+        onJsonIntoEmpty: (text) => becomeJson(tab, text), prettyPasted: (text) => prettyJson(text, jsonIndent()),
       });
       faithful = tab.forceRich || isFaithful(tab.doc.text, tab.editor.getText());
     } catch (e) {
@@ -187,11 +188,12 @@ async function switchMode(tab, mode) {
   else layoutPanes();
 }
 
-/** JSON pasted into an empty note: from now on it is a JSON file in the code editor. */
+/** JSON pasted into an empty note: from now on it is a JSON file in the code editor, already readable. */
 async function becomeJson(tab, text) {
   try {
+    const pretty = prettyJson(text, jsonIndent());
     tab.doc = await api.setExtension(tab.id, '.json');
-    tab.doc.text = text;
+    tab.doc.text = pretty;
     tab.lastSent = '';
     tab.editor.destroy();
     tab.pane.remove();
@@ -199,9 +201,23 @@ async function becomeJson(tab, text) {
     tab.pane = null;
     tab.mode = 'code';
     activate(tab.id);
-    tab.editor.setText(text);
+    tab.editor.setText(pretty);
     await send(tab);
   } catch (e) { failed(e); }
+}
+
+/**
+ * Pasting into a .json file formats it if the result is JSON; Ctrl+Z takes the formatting back and leaves the paste.
+ * Only on pasting: formatting on opening or while typing would rewrite the layout of files someone arranged by hand.
+ */
+function formatPasted(tab) {
+  queueMicrotask(() => { // the editor is still finishing the paste
+    if (!isJsonFile(tab.doc) || !tab.editor) return;
+    const text = tab.editor.getText();
+    if (!isJson(text)) return;
+    const pretty = prettyJson(text, jsonIndent());
+    if (pretty !== text) tab.editor.setText(pretty);
+  });
 }
 
 function activate(id, focus = true) {
@@ -275,7 +291,7 @@ function syncCompare() {
   const pair = createCompareEditors({
     parent: host, wrap: state.settings.wrap, onDiffChange: paintCompareBar, onDestroy: endCompare,
     sides: tabs.map((t) => ({
-      text: t.doc.text, name: t.doc.name, onChange: () => changed(t),
+      text: t.doc.text, name: t.doc.name, onChange: () => changed(t), onPaste: () => formatPasted(t),
       onCursor: () => { if (t.id === state.activeId) paintPosition(); saveSessionSoon(); },
       onFocus: () => { if (t.id !== state.activeId) activate(t.id, false); },
     })),
@@ -502,6 +518,7 @@ function paintStatus() {
   $('st-mode').textContent = md ? (tab.mode === 'rich' && !comparing(tab) ? 'Live' : 'Quelltext') : (tab.doc.ext.slice(1).toUpperCase() || 'Text');
   $('st-mode').disabled = !md || comparing(tab);
   $('st-mode').title = !md ? '' : comparing(tab) ? 'Beim Vergleichen zeigt jede Notiz ihren Quelltext' : 'Zwischen Live-Ansicht und Quelltext wechseln (Strg+/)';
+  $('st-format').hidden = !isJsonFile(tab.doc);
   const enc = { 'utf-8': 'UTF-8', 'utf-16le': 'UTF-16 LE', 'utf-16be': 'UTF-16 BE', 'windows-1252': 'Windows-1252' }[tab.doc.encoding];
   $('st-enc').textContent = tab.doc.bom ? `${enc} BOM` : enc;
   $('st-eol').textContent = { '\n': 'LF', '\r\n': 'CRLF', '\r': 'CR' }[tab.doc.eol];
@@ -727,12 +744,13 @@ async function createNoteIn(folder) {
 
 // ---------------------------------------------------------------- JSON and other text tools
 
+function jsonIndent() { return { 2: '  ', 4: '    ', tab: '\t' }[state.settings.jsonIndent] ?? '  '; }
+
 function jsonTool(fn) {
   const tab = activeTab();
   if (!tab) return;
-  const indent = { 2: '  ', 4: '    ', tab: '\t' }[state.settings.jsonIndent] ?? '  ';
   try {
-    tab.editor.transform((s) => fn(s, indent));
+    tab.editor.transform((s) => fn(s, jsonIndent()));
     send(tab);
   } catch (e) {
     banner({ kind: 'warning', text: e.message });
@@ -1135,7 +1153,6 @@ document.addEventListener('drop', async (e) => {
 function wire() {
   const iconize = (id, name) => { $(id).innerHTML = icon(name); };
   iconize('new-folder', 'folderPlus');
-  iconize('new-note', 'plus');
   iconize('tab-new', 'plus');
   iconize('win-min', 'minus');
   iconize('win-max', 'maximize');
@@ -1147,7 +1164,6 @@ function wire() {
   sideLink('btn-trash', 'trash', 'Papierkorb', showTrash);
   sideLink('btn-settings', 'settings', 'Einstellungen', showSettings);
 
-  $('new-note').addEventListener('click', () => newTab());
   $('tab-new').addEventListener('click', () => newTab());
   $('tab-new').addEventListener('contextmenu', (e) => {
     e.preventDefault();
@@ -1194,6 +1210,7 @@ function wire() {
     try { await api.move(from, ''); refreshTree(); } catch (err) { failed(err); }
   });
 
+  $('st-format').addEventListener('click', () => { jsonTool(prettyJson); activeTab()?.editor.focus(); });
   $('st-mode').addEventListener('click', () => {
     const tab = activeTab();
     if (tab && isMd(tab.doc) && !comparing(tab)) { tab.forceRich = tab.mode === 'code'; switchMode(tab, tab.mode === 'rich' ? 'code' : 'rich'); }

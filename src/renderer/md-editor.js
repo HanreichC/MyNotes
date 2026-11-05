@@ -304,7 +304,7 @@ export function isFaithful(original, regenerated) {
   try { return canon(original) === canon(regenerated); } catch { return false; }
 }
 
-export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmpty, onImageError }) {
+export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmpty, onImageError, prettyPasted }) {
   let slash;
   let pasteAsCode = false;
   const host = el('div', { class: 'prose-host ms-scroll' });
@@ -347,7 +347,8 @@ export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmp
         if (plain && (asCode || isJson(plain))) {
           if (!asCode && editor.isEmpty) { onJsonIntoEmpty(plain); return true; }
           editor.chain().focus().insertContent({
-            type: 'codeBlock', attrs: { language: isJson(plain) ? 'json' : null }, content: [{ type: 'text', text: plain }],
+            // Strg+Umschalt+V means "exactly as it is", so only a plain paste gets formatted.
+            type: 'codeBlock', attrs: { language: isJson(plain) ? 'json' : null }, content: [{ type: 'text', text: asCode ? plain : prettyPasted(plain) }],
           }).run();
           return true;
         }
