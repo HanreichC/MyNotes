@@ -269,20 +269,6 @@ try {
   assert.ok(midway >= 2, `only ${midway} journal records after 900 ms of steady typing`); // a restarted timer would give 0
   step(`steady typing reaches the journal while it happens (${midway} records in 900 ms)`);
 
-  // ---------- nor may another window on top slow that down. Chromium would hold the save timer back to about once a second.
-  await newTab(page);
-  const coveredId = await page.$eval('.pane:not([hidden])', (n) => n.dataset.doc);
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].hide());
-  const typingCovered = page.keyboard.type('Verdeckt getippt und trotzdem laufend gesichert', { delay: 40 });
-  await new Promise((r) => setTimeout(r, 900));
-  const whileCovered = (await fs.readFile(path.join(data, 'journal', `${coveredId}.log`), 'utf8')).split('\n').filter((l) => l.includes('"t":"d"')).length;
-  await typingCovered;
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].showInactive());
-  assert.ok(whileCovered >= 2, `only ${whileCovered} journal records after 900 ms in a window that is not on top`);
-  await page.keyboard.press('Control+w');
-  await until(async () => !(await tabNames(page)).some((n) => n.startsWith('Verdeckt')), 'tab closed');
-  step(`and in a window that is not on top (${whileCovered} records in 900 ms)`);
-
   // ---------- find and replace in the live editor
   await page.keyboard.press('Control+f');
   const findBar = '.pane:not([hidden]) .find-bar';
@@ -428,6 +414,9 @@ try {
     return list.right < 700 && tab.left >= list.left - 1 && tab.right <= list.right + 1; // tab widths are fractional, scrolling is not
   }), 'active tab in view after shrinking', 2000);
   await setSize(wideW, wideH);
+  // A resize that arrives late scrolls the tabs back to the active one, under the next step's mouse.
+  await until(() => page.evaluate((w) => innerWidth === w, wideW), 'window wide again');
+  await page.evaluate(() => new Promise((r) => { requestAnimationFrame(() => requestAnimationFrame(r)); }));
   step('a narrower window keeps the active tab in view');
 
   // ---------- two tabs side by side: drag one onto the editor, both stay editable, the arrangement survives a restart, × ends it
@@ -670,6 +659,18 @@ try {
     await shot(page, name);
   }
   step('settings and display modes');
+
+  // ---------- another window on top must not slow saving down: Chromium would hold the save timer back to about once a second.
+  // Last on purpose: hiding the window must not get to disturb what comes after it.
+  await newTab(page);
+  const coveredId = await page.$eval('.pane:not([hidden])', (n) => n.dataset.doc);
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].hide());
+  const typingCovered = page.keyboard.type('Verdeckt getippt und trotzdem laufend gesichert', { delay: 40 });
+  await new Promise((r) => setTimeout(r, 900));
+  const whileCovered = (await fs.readFile(path.join(data, 'journal', `${coveredId}.log`), 'utf8')).split('\n').filter((l) => l.includes('"t":"d"')).length;
+  await typingCovered;
+  assert.ok(whileCovered >= 2, `only ${whileCovered} journal records after 900 ms in a window that is not on top`);
+  step(`typing reaches the journal in a window that is not on top (${whileCovered} records in 900 ms)`);
 
   assert.deepEqual(errors, [], 'no uncaught errors in the window');
   await app.close();
