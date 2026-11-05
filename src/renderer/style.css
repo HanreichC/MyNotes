@@ -84,11 +84,12 @@ svg { display: block; }
 .tab:hover { background: var(--ms-color-fill-tertiary); }
 .tab.is-active { background: var(--ms-color-fill-secondary); }
 .tab.is-active .tab-name { font-weight: 600; }
+.tab.is-paired { background: var(--ms-color-fill-tertiary); }
 .tab:focus-visible { outline-offset: -2px; }
 .tab-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* a tab has one line; the full path is in the tooltip */
 .tab-warn { flex: none; width: var(--ms-size-icon-s); height: var(--ms-size-icon-s); color: var(--ms-color-system-orange); }
 .tab-close { flex: none; display: grid; place-items: center; width: var(--ms-size-hit-min-desktop); height: var(--ms-size-hit-min-desktop); padding: 5px; border: 0; border-radius: var(--ms-radius-capsule); background: transparent; color: var(--ms-color-label-secondary); opacity: 0; }
-.tab:hover .tab-close, .tab.is-active .tab-close, .tab-close:focus-visible { opacity: 1; }
+.tab:hover .tab-close, .tab.is-active .tab-close, .tab.is-paired .tab-close, .tab-close:focus-visible { opacity: 1; }
 .tab-close:hover { background: var(--ms-color-fill-secondary); color: var(--ms-color-label-primary); }
 .icon-btn { flex: none; display: grid; place-items: center; width: var(--ms-size-window-button); height: var(--ms-size-window-button); padding: 9px; border: 0; border-radius: var(--ms-radius-capsule); background: transparent; -webkit-app-region: no-drag; }
 .icon-btn:hover { background: var(--ms-color-fill-tertiary); }
@@ -112,6 +113,18 @@ svg { display: block; }
 /* ---------------------------------------------------------------- editors */
 #editors { position: relative; flex: 1; min-height: 0; padding: 0; overflow: hidden; }
 .pane { position: absolute; inset: 0; display: flex; flex-direction: column; }
+/* Two tabs side by side share the one card: a head with their names, a hairline between them. */
+.pane--left { top: var(--ms-size-window-button); right: 50%; }
+.pane--right { top: var(--ms-size-window-button); left: 50%; border-left: 1px solid var(--ms-color-separator-default); }
+#split-head { position: absolute; inset: 0 0 auto; height: var(--ms-size-window-button); display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--ms-color-separator-default); }
+.split-side { display: flex; align-items: center; justify-content: space-between; gap: var(--ms-space-xs); min-width: 0; padding: 0 var(--ms-space-xxs) 0 var(--ms-space-l); color: var(--ms-color-label-secondary); }
+.split-side + .split-side { border-left: 1px solid var(--ms-color-separator-default); }
+.split-side.is-active { color: var(--ms-color-label-primary); }
+.split-side.is-active .tab-name { font-weight: 600; }
+/* What a dragged tab can be dropped on: 8 inset in the card's radius 20 gives the tile's 12 (§ 7.2). */
+#split-drop { position: absolute; inset: 0; z-index: 1; display: grid; grid-template-columns: 1fr 1fr; gap: var(--ms-space-s); padding: var(--ms-space-s); background: color-mix(in srgb, var(--ms-color-background-top) 80%, transparent); }
+.split-zone { display: grid; place-items: center; border-radius: var(--ms-radius-tile); background: var(--ms-color-fill-tertiary); color: var(--ms-color-label-secondary); transition: background-color var(--ms-motion-duration-hover) var(--ms-motion-easing-standard); }
+.split-zone.is-over { background: color-mix(in srgb, var(--ms-color-accent) 20%, transparent); box-shadow: inset 0 0 0 2px var(--ms-color-focus-ring); color: var(--ms-color-label-primary); font-weight: 600; }
 .pane .cm-editor { flex: 1; min-height: 0; }
 .prose-host { flex: 1; min-height: 0; }
 /* W-3: text fades out under the card's top edge instead of being cut off */

@@ -12,7 +12,7 @@ const RICH_LIMIT = 2 * 1024 * 1024; // above this the WYSIWYG view gets slow: op
 const isMd = (doc) => /^\.(md|markdown)$/i.test(doc.ext);
 
 const state = {
-  tabs: [], activeId: null, tree: { items: [], online: true }, expanded: new Set(), filter: '', settings: null,
+  tabs: [], activeId: null, split: null /* [left id, right id], one of them the active tab */, tree: { items: [], online: true }, expanded: new Set(), filter: '', settings: null,
   closed: [], sessionReady: false, seenBackupHint: false, focusPath: null, drag: null,
 };
 
@@ -131,6 +131,7 @@ function addTab(doc) {
 function ensureEditor(tab) {
   if (tab.editor) return;
   tab.pane = el('div', { class: 'pane', 'data-doc': tab.id });
+  tab.pane.addEventListener('focusin', () => { if (tab.id !== state.activeId && state.split?.includes(tab.id)) activate(tab.id, false); });
   $('editors').append(tab.pane);
   const onChange = () => changed(tab);
   const onCursor = () => { if (tab.id === state.activeId) paintPosition(); saveSessionSoon(); };
@@ -179,6 +180,7 @@ async function switchMode(tab, mode) {
   tab.pane = null;
   tab.mode = mode;
   if (tab.id === state.activeId) activate(tab.id);
+  else layoutPanes();
 }
 
 /** JSON pasted into an empty note: from now on it is a JSON file in the code editor. */
@@ -198,23 +200,74 @@ async function becomeJson(tab, text) {
   } catch (e) { failed(e); }
 }
 
-function activate(id) {
+function activate(id, focus = true) {
   const prev = activeTab();
   if (prev && prev.id !== id) {
     send(prev);
     if (prev.pane) prev.cursor = prev.editor?.getCursor();
-    if (prev.pane) prev.pane.hidden = true;
+    // Side by side, another tab takes the place of the side being worked in.
+    if (state.split && !state.split.includes(id)) state.split[state.split.indexOf(prev.id)] = id;
   }
   state.activeId = id;
   const tab = activeTab();
   if (!tab) return;
-  ensureEditor(tab);
-  tab.pane.hidden = false;
+  layoutPanes();
   paintTabs();
   paintTree();
   paintStatus();
-  tab.editor.focus();
+  if (focus) tab.editor.focus();
   saveSessionSoon();
+}
+
+/** Shows the active tab, or both tabs side by side. */
+function layoutPanes() {
+  const [left, right] = state.split ?? [];
+  for (const t of state.tabs) {
+    const shown = state.split ? state.split.includes(t.id) : t.id === state.activeId;
+    if (shown) ensureEditor(t);
+    if (!t.pane) continue;
+    t.pane.hidden = !shown;
+    t.pane.classList.toggle('pane--left', t.id === left);
+    t.pane.classList.toggle('pane--right', t.id === right);
+  }
+}
+
+/** Puts a tab on one side (0 left, 1 right). The other side keeps what is there, or shows the active tab or a neighbour. */
+function placeBeside(id, side) {
+  const at = state.tabs.findIndex((t) => t.id === id);
+  let other = state.split?.[1 - side] ?? (id !== state.activeId ? state.activeId : (state.tabs[at + 1] ?? state.tabs[at - 1]).id);
+  if (other === id) other = state.split[side]; // moved to the other side: the two swap places
+  state.split = side ? [other, id] : [id, other];
+  activate(id);
+}
+
+/** A tab of the pair is gone or hidden: returns the other one, which gets the whole card. */
+function leaveSplit(id) {
+  if (!state.split?.includes(id)) return null;
+  const other = state.split.find((x) => x !== id);
+  state.split = null;
+  return other;
+}
+
+function paintSplitHead() {
+  const head = $('split-head');
+  head.hidden = !state.split;
+  head.replaceChildren(...(state.split ?? []).map((id) => {
+    const name = displayName(state.tabs.find((t) => t.id === id));
+    return el('div', { class: `split-side${id === state.activeId ? ' is-active' : ''}` },
+      el('span', { class: 'tab-name ms-callout' }, name),
+      el('button', {
+        class: 'round-btn round-btn--s', 'aria-label': `${name} ausblenden`, title: 'Ausblenden, der Tab bleibt offen', html: icon('close'),
+        onclick: () => activate(leaveSplit(id)),
+      }));
+  }));
+}
+
+function endTabDrag() {
+  state.dragTab = null;
+  $('split-drop').hidden = true;
+  for (const zone of $('split-drop').children) zone.classList.remove('is-over');
+  if (state.tabsStale) { state.tabsStale = false; paintTabs(); }
 }
 
 async function newTab(opts) {
@@ -250,7 +303,9 @@ async function closeTab(id) {
   tab.editor?.destroy();
   tab.pane?.remove();
   if (tab.doc.path) state.closed.push(tab.doc.path);
-  if (state.activeId === id) {
+  const partner = leaveSplit(id);
+  if (partner) activate(partner);
+  else if (state.activeId === id) {
     state.activeId = null;
     const next = state.tabs[Math.min(at, state.tabs.length - 1)];
     if (next) activate(next.id);
@@ -269,7 +324,9 @@ function dropTab(id) { // the document is already gone in the store
   state.tabs.splice(at, 1);
   tab.editor?.destroy();
   tab.pane?.remove();
-  if (state.activeId === id) {
+  const partner = leaveSplit(id);
+  if (partner) activate(partner);
+  else if (state.activeId === id) {
     state.activeId = null;
     const next = state.tabs[Math.min(at, state.tabs.length - 1)];
     if (next) activate(next.id);
@@ -291,7 +348,7 @@ function paintTabs() {
     const active = tab.id === state.activeId;
     const warn = tab.saveState === 'vault-error' || tab.saveState === 'journal-error';
     const node = el('div', {
-      class: `tab${active ? ' is-active' : ''}`, role: 'tab', 'aria-selected': String(active), tabIndex: active ? 0 : -1,
+      class: `tab${active ? ' is-active' : ''}${!active && state.split?.includes(tab.id) ? ' is-paired' : ''}`, role: 'tab', 'aria-selected': String(active), tabIndex: active ? 0 : -1,
       draggable: true, title: tab.doc.external ?? tab.doc.path ?? 'Noch nicht benannt',
       onclick: () => activate(tab.id),
       onauxclick: (e) => { if (e.button === 1) closeTab(tab.id); },
@@ -300,8 +357,8 @@ function paintTabs() {
         if (e.key === 'ArrowLeft') { e.preventDefault(); cycleTab(-1); }
       },
       oncontextmenu: (e) => { e.preventDefault(); tabMenu(tab, { x: e.clientX, y: e.clientY }); },
-      ondragstart: (e) => { state.dragTab = tab.id; e.dataTransfer.effectAllowed = 'move'; },
-      ondragend: () => { state.dragTab = null; if (state.tabsStale) { state.tabsStale = false; paintTabs(); } },
+      ondragstart: (e) => { state.dragTab = tab.id; e.dataTransfer.effectAllowed = 'move'; $('split-drop').hidden = state.tabs.length < 2; },
+      ondragend: endTabDrag,
       ondragover: (e) => { if (state.dragTab) { e.preventDefault(); e.stopPropagation(); } },
       ondrop: (e) => {
         if (!state.dragTab) return;
@@ -310,7 +367,7 @@ function paintTabs() {
         const from = state.tabs.findIndex((t) => t.id === state.dragTab);
         const to = state.tabs.indexOf(tab);
         state.tabs.splice(to, 0, state.tabs.splice(from, 1)[0]);
-        state.dragTab = null;
+        endTabDrag();
         paintTabs();
         saveSessionSoon();
       },
@@ -326,12 +383,16 @@ function paintTabs() {
   // Into view when the active tab changes or while typing, but a repaint must not pull the list away from someone looking for another tab.
   if (state.activeId !== state.tabInView || !list.matches(':hover')) list.querySelector('.is-active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   state.tabInView = state.activeId;
+  paintSplitHead();
 }
 
 function tabMenu(tab, at) {
   menu(at, [
     { label: 'Schließen', run: () => closeTab(tab.id) },
     { label: 'Andere schließen', run: () => state.tabs.filter((t) => t !== tab).forEach((t) => closeTab(t.id)) },
+    { separator: true },
+    ...(state.tabs.length > 1 ? [{ label: 'Rechts daneben anzeigen', run: () => placeBeside(tab.id, 1) }] : []),
+    ...(state.split?.includes(tab.id) ? [{ label: 'Nebeneinander beenden', run: () => { state.split = null; activate(tab.id); } }] : []),
     { separator: true },
     ...(tab.doc.path ? [
       { label: 'Umbenennen …', run: () => renameItem(tab.doc.path, tab.doc.name) },
@@ -879,7 +940,7 @@ function saveSession() {
   }
   // Only comfort lives here. If this file is lost, the journals still bring back every tab.
   return api.saveSession({
-    order: state.tabs.map((t) => t.id), active: state.activeId, cursors, expanded: [...state.expanded],
+    order: state.tabs.map((t) => t.id), active: state.activeId, split: state.split, cursors, expanded: [...state.expanded],
     closed: state.closed.slice(-30), seenBackupHint: state.seenBackupHint,
   }).catch(() => {});
 }
@@ -1004,6 +1065,17 @@ function wire() {
   }, { passive: false });
   // A narrower list (window, sidebar width) must not push the active tab out of view. Scrolling with the wheel doesn't change the width, so it stays free.
   new ResizeObserver(() => $('tab-list').querySelector('.is-active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })).observe($('tab-list'));
+  for (const zone of $('split-drop').children) {
+    zone.addEventListener('dragover', (e) => { if (state.dragTab) { e.preventDefault(); zone.classList.add('is-over'); } });
+    zone.addEventListener('dragleave', () => zone.classList.remove('is-over'));
+    zone.addEventListener('drop', (e) => {
+      if (!state.dragTab) return;
+      e.preventDefault();
+      const id = state.dragTab;
+      endTabDrag();
+      placeBeside(id, Number(zone.dataset.side));
+    });
+  }
   $('new-folder').addEventListener('click', () => createFolderIn(''));
   $('filter').addEventListener('input', (e) => { state.filter = e.target.value; paintTree(); });
   $('win-min').addEventListener('click', () => api.win('minimize'));
@@ -1086,6 +1158,8 @@ async function start() {
     tab.cursor = session?.cursors?.[d.id] ?? null;
   }
   await refreshTree();
+  const split = session?.split;
+  if (split?.length === 2 && split.includes(session.active) && split.every((id) => state.tabs.some((t) => t.id === id))) state.split = split;
   if (!state.tabs.length) await newTab();
   else activate(state.tabs.some((t) => t.id === session?.active) ? session.active : state.tabs[0].id);
   state.sessionReady = true;

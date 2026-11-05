@@ -54,7 +54,7 @@ const kill = async (app) => {
   await until(() => { try { process.kill(pid, 0); return false; } catch { return true; } }, 'process gone');
   await new Promise((r) => setTimeout(r, 300));
 };
-const tabNames = (page) => page.$$eval('.tab-name', (n) => n.map((x) => x.textContent));
+const tabNames = (page) => page.$$eval('#tab-list .tab-name', (n) => n.map((x) => x.textContent));
 /** Ctrl+T, then wait for the new tab itself: its title alone can also be the title of the tab before. */
 const newTab = async (page) => {
   const before = await page.$eval('.pane:not([hidden])', (n) => n.dataset.doc);
@@ -396,6 +396,79 @@ try {
   }), 'active tab in view after shrinking', 2000);
   await setSize(wideW, wideH);
   step('a narrower window keeps the active tab in view');
+
+  // ---------- two tabs side by side: drag one onto the editor, both stay editable, the arrangement survives a restart, × ends it
+  const visible = () => page.$$eval('.pane:not([hidden])', (n) => n.map((p) => { const r = p.getBoundingClientRect(); return { doc: p.dataset.doc, left: r.left, right: r.right }; }).sort((a, b) => a.left - b.left));
+  const dragTabTo = async (tabSelector, side) => {
+    await page.$eval(tabSelector, (n) => n.scrollIntoView({ inline: 'nearest' }));
+    const from = await page.locator(tabSelector).boundingBox();
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + from.width / 2 + 10, from.y + from.height + 10, { steps: 3 });
+    await page.waitForSelector('#split-drop:not([hidden])');
+    const zone = await page.locator(`.split-zone[data-side="${side}"]`).boundingBox();
+    await page.mouse.move(zone.x + zone.width / 2, zone.y + zone.height / 2, { steps: 5 });
+    await page.waitForSelector(`.split-zone[data-side="${side}"].is-over`);
+    await shot(page, '13-split-drop');
+    await page.mouse.up();
+    await page.waitForSelector('#split-drop', { state: 'hidden' });
+  };
+  const before2 = await page.$eval('.pane:not([hidden])', (n) => n.dataset.doc);
+  const dragged = await page.$eval('.tab:first-child', () => document.querySelector('.tab:first-child .tab-name').textContent);
+  await dragTabTo('.tab:first-child', 1);
+  await until(async () => (await visible()).length === 2, 'two panes');
+  let [leftPane, rightPane] = await visible();
+  assert.equal(leftPane.doc, before2, 'the tab that was open stays on the left');
+  assert.ok(leftPane.right <= rightPane.left, 'the panes do not overlap');
+  assert.equal(await page.textContent('.split-side.is-active .tab-name'), dragged);
+  assert.equal(await tabNames(page).then((n) => n.length), count, 'dragging opens nothing and closes nothing');
+  await shot(page, '14-split');
+  // Typing goes where the click was, and the status bar follows.
+  const paneIn = (doc) => `.pane[data-doc="${doc}"]`;
+  await page.click(`${paneIn(leftPane.doc)} .prose, ${paneIn(leftPane.doc)} .cm-content`);
+  await until(async () => (await page.textContent('.split-side.is-active .tab-name')) !== dragged, 'left side active after a click');
+  await page.keyboard.press('Control+End');
+  await new Promise((r) => setTimeout(r, 100));
+  await page.keyboard.type(' Links');
+  await page.click(`${paneIn(rightPane.doc)} .prose, ${paneIn(rightPane.doc)} .cm-content`);
+  await until(async () => (await page.textContent('.split-side.is-active .tab-name')) === dragged, 'right side active after a click');
+  await page.keyboard.press('Control+End');
+  await new Promise((r) => setTimeout(r, 100));
+  await page.keyboard.type(' Rechts');
+  assert.match(await page.textContent(paneIn(leftPane.doc)), /Links/);
+  assert.doesNotMatch(await page.textContent(paneIn(leftPane.doc)), /Rechts/);
+  assert.match(await page.textContent(paneIn(rightPane.doc)), /Rechts/);
+  await saved(page);
+  await new Promise((r) => setTimeout(r, 1000)); // the session is saved 800 ms after the last change
+  await app.close();
+  ({ app, page } = await launch());
+  await until(async () => (await visible()).length === 2, 'side by side again after a restart');
+  assert.deepEqual((await visible()).map((p) => p.doc), [leftPane.doc, rightPane.doc]);
+  // This tab was closed and brought back with Ctrl+Shift+T above: what was typed afterwards must have reached the folder.
+  assert.match(await read('Projekte/Teamplan.md'), /Links/);
+  assert.match(await read('Eingang/Projektplan.md'), /Rechts/);
+  // Dropped on the other side, the two swap.
+  await dragTabTo(`.tab.is-active`, 0);
+  const activeDoc = rightPane.doc;
+  await until(async () => (await visible())[0].doc === activeDoc, 'swapped');
+  // A third tab takes the place of the side being worked in, and × hides a side but keeps the tab.
+  [leftPane, rightPane] = await visible();
+  await page.click('.split-side:not(.is-active) .round-btn');
+  await until(async () => (await visible()).length === 1, 'one pane again');
+  assert.equal((await visible())[0].doc, leftPane.doc, 'the active side stays');
+  assert.equal((await tabNames(page)).length, count);
+  assert.equal(await page.isVisible('#split-head'), false);
+  await page.click('.tab.is-active', { button: 'right' });
+  await page.click('.float-menu >> text=Rechts daneben anzeigen');
+  await until(async () => (await visible()).length === 2, 'from the tab menu');
+  const paired = (await visible()).map((p) => p.doc);
+  await page.click('.tab:not(.is-active):not(.is-paired)');
+  await until(async () => (await visible()).length === 2 && (await visible()).map((p) => p.doc).join() !== paired.join(), 'another tab replaced the active side');
+  await page.keyboard.press('Control+w');
+  await until(async () => (await visible()).length === 1, 'closing one side gives the other the whole card');
+  await page.keyboard.press('Control+Shift+t');
+  await until(async () => (await tabNames(page)).length === count, 'tab back');
+  step('side by side: drag, edit both, restart, swap, hide, replace, close');
 
   // ---------- trash and restore
   await page.click('[data-path="korpus0.md"]', { button: 'right' });

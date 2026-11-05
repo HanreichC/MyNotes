@@ -54,6 +54,8 @@ Press `Ctrl+T` and type, the same as in Notepad++. With the first character the 
 
 Closing a tab never asks anything, and `Ctrl+Shift+T` brings it back.
 
+To compare two notes, drag a tab onto the editor and drop it on the left or right half. Both stay editable, and the arrangement comes back after a restart. The `×` above a side hides it and leaves its tab open. It doesn't mark differences or scroll both sides together.
+
 <br>
 
 ## A wiki. Not a pile of tabs.
@@ -230,7 +232,7 @@ npm run e2e   # the real app in a real window
 - Text typed in the first few milliseconds after `Ctrl+T`, before the new tab exists, lands in the previous tab.
 - The glass has blur, tint and rim, but not the refracting lens of MyPods and MyCAD, which comes from their Qt shader.
 - The interface is German only.
-- Macros, file compare, hex view, split view, plugins and links between notes aren't implemented. They come if they turn out to be missed.
+- Macros, file compare, hex view, plugins and links between notes aren't implemented. They come if they turn out to be missed.
 - Sync between computers isn't built in. Use Nextcloud, OneDrive or Git on the notes folder; conflicts end up as copies next to the note.
 - The history only grows. Notes are small, but nothing thins it out yet.
 - Search skips files above 5 MB and stops at 500 hits.
