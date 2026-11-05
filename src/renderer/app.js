@@ -775,6 +775,67 @@ const openCommands = () => [
 
 const showCommands = () => pick({ title: 'Befehl …', items: commands() });
 
+/** [what it does, keys, where it applies]. tests/e2e.mjs checks that every shortcut of the command list is in here too. */
+const SHORTCUTS = [
+  ['Tabs', [
+    ['Neuer Tab', ['Strg+T', 'Strg+N']],
+    ['Tab schließen', ['Strg+W']],
+    ['Geschlossenen Tab zurückholen', ['Strg+Umschalt+T']],
+    ['Nächster Tab', ['Strg+Tab', 'Strg+Bild↓']],
+    ['Voriger Tab', ['Strg+Umschalt+Tab', 'Strg+Bild↑']],
+  ]],
+  ['Öffnen und finden', [
+    ['Notiz öffnen', ['Strg+P']],
+    ['Datei öffnen', ['Strg+O']],
+    ['Alle Befehle', ['Strg+Umschalt+P']],
+    ['In allen Notizen suchen', ['Strg+Umschalt+F']],
+    ['Suchen und Ersetzen', ['Strg+F', 'Strg+H']],
+    ['Einstellungen', ['Strg+,']],
+    ['Tastenkürzel', ['F1']],
+  ]],
+  ['Bearbeiten', [
+    ['Rückgängig, wiederholen', ['Strg+Z', 'Strg+Y']],
+    ['Sofort in den Notizordner schreiben', ['Strg+S']],
+    ['Einrücken, ausrücken', ['Tab', 'Umschalt+Tab']],
+    ['Editor mit der Tastatur verlassen', ['Esc, dann Tab']],
+  ]],
+  ['Notizen', [
+    ['Live-Ansicht und Quelltext wechseln', ['Strg+/']],
+    ['Blockmenü', ['/'], 'Am Anfang einer Zeile'],
+    ['Fett, kursiv', ['Strg+B', 'Strg+I']],
+    ['Unverändert als Code-Block einfügen', ['Strg+Umschalt+V']],
+    ['Link öffnen', ['Strg+Klick']],
+    ['Notiz im Baum in den Papierkorb legen', ['Entf']],
+  ]],
+  ['Code-Dateien und Quelltext', [
+    ['Zeile duplizieren, löschen', ['Strg+D', 'Strg+L']],
+    ['Zeile verschieben', ['Strg+Umschalt+↑', 'Strg+Umschalt+↓']],
+    ['Gehe zu Zeile', ['Strg+G']],
+    ['Weiterer Cursor, Spaltenauswahl', ['Strg+Klick', 'Alt+Ziehen']],
+  ]],
+  ['JSON', [
+    ['Formatieren', ['Strg+Alt+J'], 'Auswahl, Code-Block unter dem Cursor oder ganze Datei'],
+    ['Komprimieren', ['Strg+Alt+Umschalt+J']],
+  ]],
+  ['Vergleichen', [
+    ['Zwei Tabs vergleichen, beenden', ['Strg+Alt+D'], 'Wenn zwei Tabs nebeneinander offen sind'],
+    ['Nächster, voriger Unterschied', ['Alt+↓', 'Alt+↑']],
+  ]],
+];
+
+function showShortcuts() {
+  const { body } = sheet('Tastenkürzel');
+  for (const [title, entries] of SHORTCUTS) {
+    body.append(...section(title, ...entries.map(([label, keys, hint]) => row({
+      label, hint, end: el('span', { class: 'key-list ms-callout ms-secondary ms-num' }, ...keys.map((k) => el('kbd', {}, k))),
+    }))));
+  }
+  // The list is longer than the sheet: focus on the scroller, so the arrow keys move it right away.
+  body.tabIndex = 0;
+  body.setAttribute('aria-label', 'Liste der Tastenkürzel');
+  body.focus();
+}
+
 function commands() {
   const tab = activeTab();
   const md = tab && isMd(tab.doc);
@@ -801,6 +862,7 @@ function commands() {
     { label: 'Papierkorb öffnen …', run: showTrash },
     { label: 'Zeilenumbruch umschalten', run: () => setSetting('wrap', !state.settings.wrap) },
     { label: 'Einstellungen …', hint: 'Strg+,', run: showSettings },
+    { label: 'Tastenkürzel …', hint: 'F1', run: showShortcuts },
   ];
 }
 
@@ -1112,8 +1174,9 @@ api.onFlush(async () => {
 // ---------------------------------------------------------------- keyboard and pointer
 
 window.addEventListener('keydown', (e) => {
-  if (!(e.ctrlKey || e.metaKey)) return;
   if (document.querySelector('#layer .overlay')) return;
+  if (e.key === 'F1') { e.preventDefault(); showShortcuts(); return; }
+  if (!(e.ctrlKey || e.metaKey)) return;
   const k = e.key.toLowerCase();
   const tab = activeTab();
   const take = (fn) => { e.preventDefault(); e.stopPropagation(); fn(); };
@@ -1162,6 +1225,7 @@ function wire() {
   const sideLink = (id, name, label, run) => { const b = $(id); b.innerHTML = icon(name); b.append(label); b.addEventListener('click', run); };
   sideLink('btn-search', 'search', 'In allen Notizen suchen', showSearch);
   sideLink('btn-trash', 'trash', 'Papierkorb', showTrash);
+  sideLink('btn-keys', 'keyboard', 'Tastenkürzel', showShortcuts);
   sideLink('btn-settings', 'settings', 'Einstellungen', showSettings);
 
   $('tab-new').addEventListener('click', () => newTab());

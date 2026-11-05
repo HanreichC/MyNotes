@@ -737,6 +737,35 @@ try {
   await until(async () => !(await tabNames(page)).includes('vier.txt'), 'file closed');
   step('the Tab key indents in both editors, Esc then Tab leaves them');
 
+  // ---------- the shortcuts have one place, and nothing in the command list is missing from it
+  await page.keyboard.press('Control+Shift+p');
+  await page.waitForSelector('.picker-row');
+  const paletteKeys = await page.$$eval('.picker-hint', (n) => n.map((x) => x.textContent));
+  assert.ok(paletteKeys.includes('Strg+Alt+J') && paletteKeys.includes('F1'), `command list shows: ${paletteKeys}`);
+  await page.keyboard.press('Escape');
+  await until(async () => !(await page.$('#layer .overlay')), 'command list closed');
+  await page.keyboard.press('F1');
+  await page.waitForSelector('.sheet kbd');
+  const listedKeys = await page.$$eval('.sheet kbd', (n) => n.map((x) => x.textContent));
+  assert.deepEqual(paletteKeys.filter((k) => !listedKeys.includes(k)), [], 'in the command list but not in the overview');
+  const sheetBody = '.sheet .sheet-body';
+  assert.ok(await focusIn(sheetBody), 'the list has the focus');
+  await shot(page, '16-shortcuts');
+  assert.ok(await page.$eval('.sheet', (n) => { const r = n.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }), 'the sheet stays inside the window');
+  await page.keyboard.press('End');
+  const lastInView = () => page.$eval('.sheet', (n) => {
+    const kbds = n.querySelectorAll('kbd');
+    return kbds[kbds.length - 1].getBoundingClientRect().bottom <= n.getBoundingClientRect().bottom;
+  });
+  await until(lastInView, 'the keys reach the end of the list');
+  await page.keyboard.press('Escape');
+  await until(async () => !(await page.$('#layer .overlay')), 'overview closed');
+  await page.click('#btn-keys');
+  await page.waitForSelector('.sheet kbd');
+  await page.keyboard.press('Escape');
+  await until(async () => !(await page.$('#layer .overlay')), 'overview closed again');
+  step('all shortcuts in one overview, from the sidebar and with F1');
+
   // ---------- trash and restore
   await page.click('[data-path="korpus0.md"]', { button: 'right' });
   await page.click('text=In den Papierkorb legen');

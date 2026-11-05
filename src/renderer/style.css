@@ -210,7 +210,7 @@ svg { display: block; }
 
 /* ---------------------------------------------------------------- what floats above */
 .overlay { position: fixed; inset: 0; z-index: 50; }
-.overlay--scrim { display: grid; place-items: center; padding: var(--ms-space-xl); background: var(--ms-color-scrim); animation: fade var(--ms-motion-duration-fade) var(--ms-motion-easing-standard); }
+.overlay--scrim { display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); /* a fixed cell, or max-height: 100% of a sheet means nothing and it runs out of the window */ place-items: center; padding: var(--ms-space-xl); background: var(--ms-color-scrim); animation: fade var(--ms-motion-duration-fade) var(--ms-motion-easing-standard); }
 .overlay--scrim > * { animation: pop var(--ms-motion-duration-spring) var(--ms-motion-easing-spring); }
 .float-menu { max-height: 70vh; overflow-y: auto; animation: appear var(--ms-motion-duration-fade) var(--ms-motion-easing-standard); }
 .menu-btn { width: 100%; border: 0; background: transparent; text-align: left; font-size: var(--ms-typography-desktop-callout-size); }
@@ -237,6 +237,9 @@ svg { display: block; }
 .ms-button { white-space: nowrap; }
 .ms-row > .ms-row__end { flex: none; }
 .row-hint { display: block; }
+.sheet-body:focus { outline: none; } /* only a list to scroll, the sheet around it is what shows where the keys go */
+.key-list { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--ms-space-xxs) var(--ms-space-m); }
+.key-list kbd { font: inherit; white-space: nowrap; }
 .path-value { overflow-wrap: anywhere; }
 .row-buttons { display: flex; gap: var(--ms-space-xs); }
 .slider-labels { display: flex; align-items: center; gap: var(--ms-space-s); }

@@ -111,10 +111,14 @@ Most formatters parse the JSON and print it back, which rounds `1234567890123456
 
 Everything that isn't Markdown opens in the code editor, built on CodeMirror, which leaves your text exactly as it is. Syntax highlighting covers 143 languages. Encoding and line endings are kept, and you can change them in the status bar (UTF-8, UTF-16, Windows-1252, LF, CRLF, CR). Open any file with `Ctrl+O`, by drag and drop or from the command line.
 
+The main shortcuts are below. `F1` or `Tastenkürzel` in the sidebar shows all of them in the app.
+
 | Keys | Does |
 |------|------|
 | `Ctrl+T`, `Ctrl+W`, `Ctrl+Shift+T` | New tab, close tab, bring it back |
 | `Ctrl+Tab` | Next tab |
+| `F1` | All shortcuts |
+| `Ctrl+Alt+J`, `Ctrl+Alt+Shift+J` | Format JSON, compress it |
 | `Ctrl+Alt+D` | Compare the two tabs side by side, or stop |
 | `Alt+↓` / `↑` | Next or previous difference while comparing |
 | `Ctrl+P` | Open a note by name |

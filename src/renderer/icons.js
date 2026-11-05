@@ -25,6 +25,7 @@ const paths = {
   chevronRight: stroke('<path d="M9.5 6l6 6-6 6"/>', 2),
   chevronDown: stroke('<path d="M6 9.5l6 6 6-6"/>', 2),
   chevronUp: stroke('<path d="M6 14.5l6-6 6 6"/>', 2),
+  keyboard: stroke('<rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M7 10h.01M11 10h.01M15 10h.01M18 10h.01M7 14h.01M18 14h.01M10.5 14h4"/>'),
   compare: stroke('<path d="M4 8.5h15M15.5 5 19 8.5 15.5 12M20 15.5H5M8.5 12 5 15.5 8.5 19"/>'),
   file: stroke('<path d="M6.5 3.5h7L18.5 8.5v12h-12z"/><path d="M13.5 3.5v5h5"/>'),
   fileCode: stroke('<path d="M6.5 3.5h7L18.5 8.5v12h-12z"/><path d="M13.5 3.5v5h5M10.5 12.5 8.5 14.5l2 2M14 12.5l2 2-2 2"/>'),
