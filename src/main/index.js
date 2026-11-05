@@ -76,6 +76,7 @@ function createWindow() {
     webPreferences: {
       preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false,
       spellcheck: false, // on Linux this downloads dictionaries from Google, and notes stay on this machine
+      backgroundThrottling: false, // the timer that saves what was just typed must not wait up to a second because another window covers this one
     },
   });
   if (settings.maximized) win.maximize();
