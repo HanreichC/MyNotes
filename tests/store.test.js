@@ -455,3 +455,35 @@ test('a journal nobody can read is kept, not deleted', async () => {
   assert.equal(store.takeNotices()[0].kind, 'warning');
   assert.equal(await fs.readFile(path.join(s.dataDir, 'journal', 'unreadable', 'kaputt.log'), 'utf8'), 'Müll\n');
 });
+
+test('a note reopened while it is closing stays open, and what is typed next is kept', async () => {
+  const s = await sandbox();
+  const { store } = await boot(s);
+  await fs.writeFile(path.join(s.vault, 'n.md'), 'start\n');
+  const { id } = await store.openNote('n.md');
+  await store.update(id, 'vorher\n');
+  // Hold close() right where it writes the last version to the history, after it decided to drop the document.
+  const readdir = fs.readdir;
+  let reached;
+  let release;
+  const atHistory = new Promise((r) => { reached = r; });
+  const gate = new Promise((r) => { release = r; });
+  fs.readdir = async (...args) => {
+    if ((await read(s, 'n.md')) === 'vorher\n') { reached(); await gate; } // the note is written: only the last history version is left
+    return readdir(...args);
+  };
+  try {
+    const closing = store.close(id);
+    await atHistory;
+    const again = await store.openNote('n.md');
+    release();
+    await closing;
+    await store.update(again.id, 'nachher\n'); // throws if the tab was left pointing at a document that is gone
+    await store.commit(again.id);
+    assert.equal(await read(s, 'n.md'), 'nachher\n');
+  } finally {
+    fs.readdir = readdir;
+    release();
+  }
+  await store.shutdown();
+});

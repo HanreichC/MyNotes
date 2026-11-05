@@ -528,6 +528,7 @@ export class Store {
       const bytes = encode(doc.text, doc);
       if (bytes) await this.#snapshot(doc, bytes).catch(() => {});
     }
+    if (!doc.closing) return; // reopened while that was written: the tab is using this document again
     await this.#dropJournal(doc);
   }
 
