@@ -80,8 +80,9 @@ function createWindow() {
     },
   });
   if (settings.maximized) win.maximize();
-  // Windows does not do this itself for a transparent window. 0xA3 is WM_NCLBUTTONDBLCLK, 2 is HTCAPTION: the drag areas, not the window's edge.
-  if (process.platform === 'win32') win.hookWindowMessage(0xA3, (where) => { if (where.readUInt32LE() === 2) toggleMaximize(); });
+  // Windows sees a double click on a drag area and sends WM_SYSCOMMAND with SC_MAXIMIZE, but a transparent window ignores that.
+  // WM_NCLBUTTONDBLCLK never arrives here: Chromium takes the mouse before it, so that is no way to notice. The low 4 bits say where it came from.
+  if (process.platform === 'win32') win.hookWindowMessage(0x112, (command) => { if ((command.readUInt32LE() & 0xFFF0) === 0xF030) toggleMaximize(); });
   // MYNOTES_INACTIVE: test runs must not take the keyboard away from whoever is working at this machine
   win.once('ready-to-show', () => (process.env.MYNOTES_INACTIVE ? win.showInactive() : win.show()));
   win.loadURL('mynotes://app/index.html');

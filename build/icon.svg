@@ -5,12 +5,14 @@
       <stop offset="1" stop-color="#0071E3"/>
     </linearGradient>
   </defs>
-  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
-  <path d="M312 232h272l152 152v384a56 56 0 0 1-56 56H312a56 56 0 0 1-56-56V288a56 56 0 0 1 56-56z" fill="#FFFFFF"/>
-  <path d="M584 232l152 152H640a56 56 0 0 1-56-56z" fill="#BBDCFF"/>
-  <g stroke="#0071E3" stroke-width="44" stroke-linecap="round">
-    <path d="M352 500h288"/>
-    <path d="M352 592h288"/>
-    <path d="M352 684h176"/>
+  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+  <g transform="translate(512 512) scale(1.143) translate(-512 -512)">
+    <path d="M312 232h272l152 152v384a56 56 0 0 1-56 56H312a56 56 0 0 1-56-56V288a56 56 0 0 1 56-56z" fill="#FFFFFF"/>
+    <path d="M584 232l152 152H640a56 56 0 0 1-56-56z" fill="#BBDCFF"/>
+    <g stroke="#0071E3" stroke-width="44" stroke-linecap="round">
+      <path d="M352 500h288"/>
+      <path d="M352 592h288"/>
+      <path d="M352 684h176"/>
+    </g>
   </g>
 </svg>
