@@ -218,10 +218,10 @@ chmod +x MyNotes-x86_64.AppImage
 ./MyNotes-x86_64.AppImage
 ```
 
-Or build an Arch package with `npm run dist` in the dev container and install it:
+Or build this checkout as an Arch package and install it. All you need is Podman, and running it again updates:
 
 ```sh
-sudo pacman -U release/mynotes-0.1.0.pacman
+./install.sh
 ```
 
 ### Where your data lives
