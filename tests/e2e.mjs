@@ -1,6 +1,7 @@
 // The real app in a real window: type, kill the process hard, start again, and everything has to be there.
 // Screenshots land in the folder given by MYNOTES_SHOTS, if set.
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -93,6 +94,22 @@ try {
   await page.waitForSelector('#sidebar', { state: 'visible' });
   assert.ok(await page.$('#sidebar > #brand:not(.ms-glass)'), 'name back in the sidebar, without glass on glass');
   step('window anatomy, sidebar away and back');
+
+  // ---------- a double click on the title row maximizes and restores. Windows only: Linux window managers do it themselves.
+  // By message, so the test leaves the mouse of whoever is working at this machine alone.
+  if (process.platform === 'win32') {
+    const hwnd = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getNativeWindowHandle().readBigUInt64LE().toString());
+    const doubleClick = (where) => execFileSync('powershell', ['-NoProfile', '-Command', `(Add-Type -PassThru -Namespace W -Name U -MemberDefinition '[DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);')::PostMessage([IntPtr]${hwnd}, 0xA3, [IntPtr]${where}, [IntPtr]0)`]);
+    const maximized = (want) => until(() => page.evaluate((w) => document.documentElement.hasAttribute('data-maximized') === w, want), `maximized: ${want}`);
+    doubleClick(2);
+    await maximized(true);
+    doubleClick(2);
+    await maximized(false);
+    doubleClick(12); // the top edge is not the title
+    await new Promise((r) => setTimeout(r, 300));
+    await maximized(false);
+    step('double click on the title row: maximized and back');
+  }
 
   // ---------- the plus button: a click opens a tab at once, a right click offers the rest; the three dots are gone
   assert.equal(await page.$('#win-menu'), null);

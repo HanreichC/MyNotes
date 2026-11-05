@@ -64,6 +64,8 @@ function watchVault() {
   } catch { /* folder offline: picked up again when the window gets focus */ }
 }
 
+const toggleMaximize = () => { if (win?.isMaximized()) win.unmaximize(); else win?.maximize(); };
+
 function createWindow() {
   win = new BrowserWindow({
     ...(settings.bounds ?? { width: 1180, height: 760 }),
@@ -75,6 +77,8 @@ function createWindow() {
     },
   });
   if (settings.maximized) win.maximize();
+  // Windows does not do this itself for a transparent window. 0xA3 is WM_NCLBUTTONDBLCLK, 2 is HTCAPTION: the drag areas, not the window's edge.
+  if (process.platform === 'win32') win.hookWindowMessage(0xA3, (where) => { if (where.readUInt32LE() === 2) toggleMaximize(); });
   // MYNOTES_INACTIVE: test runs must not take the keyboard away from whoever is working at this machine
   win.once('ready-to-show', () => (process.env.MYNOTES_INACTIVE ? win.showInactive() : win.show()));
   win.loadURL('mynotes://app/index.html');
@@ -224,7 +228,7 @@ function registerIpc() {
 
   ipcMain.on('win', (_e, what) => {
     if (what === 'minimize') win?.minimize();
-    else if (what === 'maximize') { if (win?.isMaximized()) win.unmaximize(); else win?.maximize(); }
+    else if (what === 'maximize') toggleMaximize();
     else if (what === 'close') win?.close();
   });
 }
