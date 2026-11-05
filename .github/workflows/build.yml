@@ -33,6 +33,14 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with: { node-version: 24, cache: npm }
+      # Electron, WiX and 7-Zip come from GitHub's release servers, and a 504 from there should not stop a release
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/AppData/Local/electron/Cache
+            ~/AppData/Local/electron-builder/Cache
+          key: windows-downloads-${{ hashFiles('package-lock.json') }}
+          restore-keys: windows-downloads-
       - run: npm ci
       - run: npm test
       - run: npm run e2e
@@ -43,7 +51,14 @@ jobs:
         with:
           name: windows-screenshots
           path: shots/
-      - run: npx electron-builder --win msi "-c.extraMetadata.version=${{ needs.version.outputs.version }}"
+      - shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            npx electron-builder --win msi --publish never "-c.extraMetadata.version=${{ needs.version.outputs.version }}" && exit 0
+            echo "Packaging failed, attempt $attempt of 3"
+            sleep 90
+          done
+          exit 1
       - uses: actions/upload-artifact@v4
         with:
           name: windows
