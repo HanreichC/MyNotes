@@ -835,6 +835,7 @@ function applySettings() {
   if (s.contrast) html.dataset.contrast = 'more'; else delete html.dataset.contrast;
   if (s.transparency) html.dataset.transparency = 'reduce'; else delete html.dataset.transparency;
   if (s.motion) html.dataset.motion = 'reduce'; else delete html.dataset.motion;
+  html.toggleAttribute('data-full-width', s.fullWidth);
   html.style.setProperty('--ms-glass-level', s.glass);
   html.style.setProperty('--editor-size', `${s.fontSize}px`);
   html.style.setProperty('--side-w', `${s.sidebarWidth}px`);
@@ -915,6 +916,7 @@ function showSettings() {
         end: picker(() => state.settings.fontSize, [12, 13, 14, 15, 16, 18, 20].map((n) => ({ value: n, label: `${n} px` })), (v) => setSetting('fontSize', v)),
       }),
       row({ tile: 'file', color: 'controls', label: 'Lange Zeilen umbrechen', end: switchControl('wrap', 'Lange Zeilen umbrechen') }),
+      row({ tile: 'file', color: 'controls', label: 'Volle Breite nutzen', hint: 'Notizen beginnen links statt in der Mitte.', end: switchControl('fullWidth', 'Volle Breite nutzen') }),
       row({
         tile: 'code', color: 'controls', label: 'Einzug für JSON',
         end: picker(() => state.settings.jsonIndent, [{ value: 2, label: '2 Leerzeichen' }, { value: 4, label: '4 Leerzeichen' }, { value: 'tab', label: 'Tabulator' }], (v) => setSetting('jsonIndent', v)),

@@ -508,11 +508,29 @@ try {
   step('search across notes');
 
   // ---------- settings and the look in every mode
+  await newTab(page);
+  await page.keyboard.type('Eine lange Zeile, damit man sieht, wo der Text anfängt und wie weit er läuft. '.repeat(6));
+  // How far the text's box stays away from the left and right edge of the editor.
+  const insets = () => page.$eval('.pane:not([hidden]) .prose', (p) => { const b = p.getBoundingClientRect(), h = p.closest('.prose-host').getBoundingClientRect(); return [b.left - h.left, h.right - b.right]; });
+  const [left, right] = await insets();
+  assert.ok(left > 0 && Math.abs(left - right) <= 1, `centered by default: ${left}, ${right}`);
   await page.keyboard.press('Control+,');
   await page.waitForSelector('.sheet');
   await new Promise((r) => setTimeout(r, 400)); // the sheet's spring animation
   await shot(page, '5-settings');
+  const fullWidth = 'input[aria-label="Volle Breite nutzen"]';
+  await page.click(fullWidth);
+  assert.deepEqual(await insets(), [0, 0], 'the text uses the whole width');
+  await until(async () => JSON.parse(await fs.readFile(path.join(data, 'settings.json'), 'utf8')).fullWidth === true, 'the setting is saved');
   await page.keyboard.press('Escape');
+  await page.waitForSelector('.sheet', { state: 'detached' });
+  await shot(page, '5-full-width');
+  await page.keyboard.press('Control+,');
+  await page.waitForSelector('.sheet');
+  await page.click(fullWidth);
+  assert.deepEqual(await insets(), [left, right], 'back in the middle');
+  await page.keyboard.press('Escape');
+  step('full width setting: text starts at the left, saved, and back');
   for (const [name, attr, value] of [['6-dark', 'theme', 'dark'], ['7-contrast', 'contrast', 'more'], ['8-transparency', 'transparency', 'reduce']]) {
     await page.evaluate(([a, v]) => { document.documentElement.dataset[a] = v; }, [attr, value]);
     await new Promise((r) => setTimeout(r, 150));

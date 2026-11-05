@@ -130,6 +130,7 @@ svg { display: block; }
 /* W-3: text fades out under the card's top edge instead of being cut off */
 .prose-host, .pane .cm-scroller { mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.15), #000 14px); }
 .prose { max-width: 70ch; min-height: 100%; margin: 0 auto; padding: var(--ms-space-xxl) var(--ms-space-xl) var(--ms-space-xxxl); outline: none; font-size: var(--editor-size); line-height: 1.6; overflow-wrap: anywhere; }
+:root[data-full-width] .prose { max-width: none; }
 .prose > :first-child { margin-top: 0; }
 .prose p { margin: 0 0 0.6em; }
 .prose h1 { font-size: var(--ms-typography-desktop-title1-size); line-height: var(--ms-typography-desktop-title1-line); letter-spacing: var(--ms-typography-desktop-title1-tracking); font-weight: 700; margin: 1em 0 0.4em; }

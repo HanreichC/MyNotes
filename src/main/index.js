@@ -21,7 +21,7 @@ const settingsFile = path.join(dataDir, 'settings.json');
 const sessionFile = path.join(dataDir, 'session.json');
 const DEFAULTS = {
   vault: process.env.MYNOTES_VAULT ?? path.join(os.homedir(), 'MyNotes'), backup: null, theme: 'auto', contrast: false,
-  transparency: false, motion: false, glass: 0.5, fontSize: 14, wrap: true, jsonIndent: 2, sidebarWidth: 232, sidebarHidden: false, bounds: null, maximized: false,
+  transparency: false, motion: false, glass: 0.5, fontSize: 14, wrap: true, fullWidth: false, jsonIndent: 2, sidebarWidth: 232, sidebarHidden: false, bounds: null, maximized: false,
 };
 
 let settings;
@@ -194,7 +194,7 @@ function registerIpc() {
   handle('settings', () => settings);
   handle('version', () => app.getVersion());
   handle('setSettings', async (patch) => {
-    for (const k of ['theme', 'contrast', 'transparency', 'motion', 'glass', 'fontSize', 'wrap', 'jsonIndent', 'sidebarWidth', 'sidebarHidden']) {
+    for (const k of ['theme', 'contrast', 'transparency', 'motion', 'glass', 'fontSize', 'wrap', 'fullWidth', 'jsonIndent', 'sidebarWidth', 'sidebarHidden']) {
       if (k in patch) settings[k] = patch[k];
     }
     await saveSettings();

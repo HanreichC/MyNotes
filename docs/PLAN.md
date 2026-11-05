@@ -140,7 +140,7 @@ TipTap erzeugt das Markdown beim Speichern neu. Aus `5 * 3` kann also `5 \* 3` w
 
 **Notepad++-Kern:** Syntax-Highlighting für die gängigen Sprachen, Suchen und Ersetzen mit Regex, Suche über alle Notizen, Mehrfachcursor und Spaltenauswahl, Zeilen duplizieren, verschieben, löschen und sortieren, Falten, Zeilenumbruch, Zeilennummern, Encoding und Zeilenenden anzeigen und ändern, externe Dateien öffnen.
 
-**Einstellungen:** Notizordner, zweiter Sicherungsort, Erscheinungsbild, Glas-Regler, Kontrast, Transparenz, Bewegung, Schriftgröße, Zeilenumbruch, JSON-Einzug.
+**Einstellungen:** Notizordner, zweiter Sicherungsort, Erscheinungsbild, Glas-Regler, Kontrast, Transparenz, Bewegung, Schriftgröße, Zeilenumbruch, volle Breite, JSON-Einzug.
 
 **Verlauf:** Versionen je Notiz ansehen und wiederherstellen. Wiederherstellen sichert vorher den aktuellen Stand.
 
