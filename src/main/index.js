@@ -1,6 +1,6 @@
 // The Electron main process: window, IPC, lifecycle. Everything about keeping text safe lives in store.js.
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, screen, shell } from 'electron';
 import { existsSync, watch } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -67,8 +67,10 @@ function watchVault() {
 const toggleMaximize = () => { if (win?.isMaximized()) win.unmaximize(); else win?.maximize(); };
 
 function createWindow() {
+  // A margin on small screens: a transparent window that exactly fills the work area counts as maximized, and has no size to go back to.
+  const { workArea } = screen.getPrimaryDisplay();
   win = new BrowserWindow({
-    ...(settings.bounds ?? { width: 1180, height: 760 }),
+    ...(settings.bounds ?? { width: Math.min(1180, workArea.width - 80), height: Math.min(760, workArea.height - 80) }),
     minWidth: 720, minHeight: 480,
     frame: false, transparent: true, backgroundColor: '#00000000', title: 'MyNotes', show: false,
     webPreferences: {
