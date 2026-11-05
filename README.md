@@ -58,6 +58,12 @@ The status bar shows whether your text is saved, the words and lines of a note, 
 
 To see two notes at once, drag a tab onto the editor and drop it on the left or right half, or choose `Rechts daneben anzeigen` in the tab's menu. Both stay editable, and the arrangement comes back after a restart. The `×` above a side hides it and leaves its tab open.
 
+<div align="center">
+
+![Two JSON files side by side with their differences marked](docs/images/compare.png)
+
+</div>
+
 To compare them as in WinMerge, press **Vergleichen** in the pill above the two (`Ctrl+Alt+D`). Equal lines line up, both sides scroll together, changed lines and words are marked, and `Alt+↓` and `Alt+↑` jump between the differences. You can keep typing on both sides. Markdown shows its source while you compare and goes back to the live view afterwards. It stays off until you turn it on.
 
 <br>
@@ -69,6 +75,12 @@ The sidebar shows your notes folder as a tree, with folders and subfolders as de
 Moving and renaming never overwrite anything: a taken name gets a number. Open tabs and the history follow the file. The filter narrows the tree as you type, `Ctrl+P` opens a note by name and `Ctrl+Shift+F` searches all notes, with regular expressions if you want them. The button next to the name hides the sidebar when you want the whole window for writing, and dragging its edge makes it wider.
 
 Right-click the tree to create a note or folder in that spot, and an entry to rename it, move it, show it in your file manager or see its history. With the keyboard, the arrow keys walk the tree, `F2` renames and `Del` moves to the trash.
+
+<div align="center">
+
+![The menu with what a note can be converted to](docs/images/convert.png)
+
+</div>
 
 Right-click a note or its tab and choose `Konvertieren …` to turn it into something else. The menu only offers what works for that file: JSON to CSV and CSV to JSON, text to JSON, Markdown to HTML, Base64 and hex in both directions, URL encoding in both directions. The result is a new note right below the original, which stays as it is, and it opens straight away. As with formatting, big numbers and `1.0` stay intact. CSV turns into JSON with numbers and `true`/`false` as such, and `00123` stays a string so it keeps its zeros. Text without a table or `key: value` lines becomes a list with one entry per line. Files up to 32 MB can be converted. Converting fixes the order of that folder, so notes you create there later go to the end instead of sorting by name.
 
