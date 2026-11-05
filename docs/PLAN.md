@@ -156,6 +156,8 @@ TipTap erzeugt das Markdown beim Speichern neu. Aus `5 * 3` kann also `5 \* 3` w
 
 **Notepad++-Kern:** Syntax-Highlighting für die gängigen Sprachen, Suchen und Ersetzen mit Regex, Suche über alle Notizen, Mehrfachcursor und Spaltenauswahl, Zeilen duplizieren, verschieben, löschen und sortieren, Falten, Zeilenumbruch, Zeilennummern, Encoding und Zeilenenden anzeigen und ändern, externe Dateien öffnen.
 
+**Konvertieren:** Rechtsklick auf eine Notiz oder ihren Tab, dann „Konvertieren …“. Das Menü zeigt nur, was für diese Datei funktioniert: JSON ⇄ CSV, Text zu JSON, Markdown zu HTML, Base64, Hex und URL jeweils hin und zurück. Das Ergebnis ist eine neue Notiz direkt darunter, das Original bleibt unverändert. YAML und XML fehlen, weil sie neue Abhängigkeiten bräuchten.
+
 **Tastenkürzel:** Eine Übersicht aller Kürzel, über die Seitenleiste oder `F1`. Der End-to-End-Test prüft, dass jedes Kürzel der Befehlsliste darin steht.
 
 **Einstellungen:** Notizordner, zweiter Sicherungsort, Erscheinungsbild, Glas-Regler, Kontrast, Transparenz, Bewegung, Schriftgröße, Zeilenumbruch, volle Breite, JSON-Einzug.

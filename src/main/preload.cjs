@@ -9,7 +9,7 @@ const call = (name) => async (...args) => {
 
 const api = {};
 for (const name of ['docs', 'notices', 'create', 'openNote', 'openPath', 'openFile', 'update', 'commit', 'close', 'setFormat', 'setExtension',
-  'tree', 'createFolder', 'createNote', 'move', 'setOrder', 'trash', 'listTrash', 'restoreTrash', 'emptyTrash', 'history', 'readVersion',
+  'tree', 'createFolder', 'createNote', 'readForConvert', 'createBelow', 'move', 'setOrder', 'trash', 'listTrash', 'restoreTrash', 'emptyTrash', 'history', 'readVersion',
   'saveImage', 'search', 'reveal', 'openLink', 'session', 'saveSession', 'settings', 'setSettings', 'chooseFolder', 'changeVault', 'setBackup', 'version']) {
   api[name] = call(name);
 }

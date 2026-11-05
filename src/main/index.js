@@ -179,6 +179,8 @@ function registerIpc() {
   handle('tree', () => store.tree());
   handle('createFolder', (parent, name) => store.createFolder(parent, name));
   handle('createNote', (folder, name) => store.createNote(folder, name));
+  handle('readForConvert', (rel) => store.readForConvert(rel));
+  handle('createBelow', (rel, name, ext, bytes) => store.createBelow(rel, name, ext, bytes));
   handle('move', (rel, dest, name) => store.move(rel, dest, name));
   handle('setOrder', (folder, names) => store.setOrder(folder, names));
   handle('trash', (rel) => store.trash(rel));

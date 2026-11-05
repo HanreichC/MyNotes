@@ -1,4 +1,5 @@
 // The window: tabs, tree, commands. Text only ever reaches the disk through window.api.update (see store.js).
+import { conversionsFor } from '../shared/convert.js';
 import { isJson, JsonError, minifyJson, prettyJson } from '../shared/json.js';
 import { nameFromText } from '../shared/text.js';
 import { createCodeEditor, createCompareEditors, lineCommands } from './code-editor.js';
@@ -496,6 +497,7 @@ function tabMenu(tab, at) {
     { separator: true },
     ...(tab.doc.path ? [
       { label: 'Umbenennen …', run: () => renameItem(tab.doc.path, tab.doc.name) },
+      { label: 'Konvertieren …', run: () => convertMenu(tab.doc.path, at) },
       { label: 'Im Dateimanager zeigen', run: () => api.reveal(tab.doc.path) },
     ] : []),
     { label: 'Verlauf anzeigen …', run: () => showHistory({ id: tab.id }, displayName(tab)) },
@@ -692,6 +694,7 @@ function itemMenu(it, at) {
   } else {
     menu(at, [
       { label: 'Öffnen', run: () => openNote(it.path) }, { separator: true }, ...common,
+      { label: 'Konvertieren …', run: () => convertMenu(it.path, at) },
       { label: 'Verlauf anzeigen …', run: () => showHistory({ path: it.path }, it.name) }, ...del,
     ]);
   }
@@ -710,6 +713,29 @@ function moveItem(it) {
     title: `„${it.name}“ verschieben nach …`,
     items: folders.map((f) => ({ label: f.label, run: async () => { try { await api.move(it.path, f.path); refreshTree(); } catch (e) { failed(e); } } })),
   });
+}
+
+/** The second step of the context menu, at the same spot: what this note can become. The note itself stays as it is. */
+async function convertMenu(path, at) {
+  try {
+    await flushAll();
+    const { rel, bytes } = await api.readForConvert(path);
+    const name = rel.slice(rel.lastIndexOf('/') + 1);
+    const items = conversionsFor(name, bytes, jsonIndent());
+    if (!items.length) { banner({ kind: 'info', text: `„${name}“ ist leer, es gibt nichts zu konvertieren.` }); return; }
+    menu(at, items.map((c) => ({
+      label: c.label,
+      run: async () => {
+        try {
+          const made = c.make();
+          const dest = await api.createBelow(rel, made.name, made.ext, made.bytes);
+          await refreshTree();
+          // Bytes that are no text would only be refused: the new file is in the tree, right below.
+          if (made.ext !== '.bin') await openNote(dest);
+        } catch (e) { failed(e); }
+      },
+    })));
+  } catch (e) { failed(e); }
 }
 
 async function trashItem(it) {
@@ -805,7 +831,8 @@ const SHORTCUTS = [
     ['Fett, kursiv', ['Strg+B', 'Strg+I']],
     ['Unverändert als Code-Block einfügen', ['Strg+Umschalt+V']],
     ['Link öffnen', ['Strg+Klick']],
-    ['Notiz im Baum in den Papierkorb legen', ['Entf']],
+    ['Im Baum umbenennen', ['F2']],
+    ['Im Baum in den Papierkorb legen', ['Entf']],
   ]],
   ['Code-Dateien und Quelltext', [
     ['Zeile duplizieren, löschen', ['Strg+D', 'Strg+L']],

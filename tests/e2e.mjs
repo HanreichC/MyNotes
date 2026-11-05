@@ -629,6 +629,7 @@ try {
   await page.waitForSelector('.cm-mergeView', { state: 'detached' });
   await until(async () => (await page.$$('.pane:not([hidden]) .prose')).length === 2, 'live again');
   assert.equal(await page.textContent('#st-mode'), 'Live');
+  assert.equal(await statusLine(), '2 Wörter · 2 Zeilen', 'the empty paragraph the editor keeps after a list is no line');
   await flushAndWait(page);
   assert.equal(await read('stern.md'), starList, 'comparing writes nothing');
 
@@ -765,6 +766,52 @@ try {
   await page.keyboard.press('Escape');
   await until(async () => !(await page.$('#layer .overlay')), 'overview closed again');
   step('all shortcuts in one overview, from the sidebar and with F1');
+
+  // ---------- convert from the context menu: only what works, right below the note, the note itself unchanged
+  await fs.writeFile(path.join(vault, 'tabelle.md'), 'Name,Zahl\nÄrger,12345678901234567890\n');
+  await until(() => page.$('[data-path="tabelle.md"]'), 'note in the tree');
+  const openFrom = async (rel, label) => {
+    await page.click(`[data-path="${rel}"]`, { button: 'right' });
+    await page.click('.float-menu >> text=Konvertieren …');
+    await page.waitForSelector(`.float-menu >> text=${label}`);
+  };
+  await openFrom('tabelle.md', 'Zu JSON');
+  assert.deepEqual(await page.$$eval('.float-menu button', (n) => n.map((x) => x.textContent)), ['Zu JSON', 'Zu HTML', 'Zu Base64', 'Zu Hex', 'URL-kodieren']);
+  await new Promise((r) => setTimeout(r, 400)); // the menu has appeared by now: the picture should show it
+  const convertMenuBox = await page.locator('.float-menu').boundingBox();
+  assert.ok(convertMenuBox.width > 100 && convertMenuBox.x >= 0 && convertMenuBox.y >= 0 && convertMenuBox.y + convertMenuBox.height <= (await page.evaluate(() => innerHeight)), `menu inside the window: ${JSON.stringify(convertMenuBox)}`);
+  await shot(page, '17-convert');
+  await page.click('.float-menu >> text=Zu JSON');
+  await page.waitForSelector('.tab.is-active:has-text("tabelle.json")');
+  await until(async () => (await page.textContent('.pane:not([hidden]) .cm-content')).includes('"Zahl": 12345678901234567890'), 'the new note is open');
+  assert.deepEqual(JSON.parse((await read('tabelle.json')).replace('12345678901234567890', '1')), [{ Name: 'Ärger', Zahl: 1 }]);
+  assert.equal(await read('tabelle.md'), 'Name,Zahl\nÄrger,12345678901234567890\n', 'the note itself is unchanged');
+  await until(async () => {
+    const rows = await page.$$eval('#tree [data-path]', (n) => n.map((x) => x.dataset.path));
+    return rows[rows.indexOf('tabelle.md') + 1] === 'tabelle.json';
+  }, 'right below the note in the tree');
+
+  await openFrom('tabelle.json', 'Zu CSV');
+  await page.click('.float-menu >> text=Zu CSV');
+  await page.waitForSelector('.tab.is-active:has-text("tabelle.csv")');
+  assert.equal(await read('tabelle.csv'), 'Name,Zahl\nÄrger,12345678901234567890\n', 'and back to CSV with the big number intact');
+
+  await openFrom('tabelle.md', 'Zu Base64');
+  await page.click('.float-menu >> text=Zu Base64');
+  await page.waitForSelector('.tab.is-active:has-text("tabelle (Base64)")');
+  await openFrom('tabelle (Base64).txt', 'Aus Base64');
+  await page.click('.float-menu >> text=Aus Base64');
+  await page.waitForSelector('.tab.is-active:has-text("tabelle (Base64) (dekodiert)")');
+  assert.equal(await read('tabelle (Base64) (dekodiert).txt'), await read('tabelle.md'), 'there and back, byte for byte');
+
+  await page.click('.tab.is-active', { button: 'right' });
+  await page.click('.float-menu >> text=Konvertieren …');
+  await page.waitForSelector('.float-menu >> text=Zu Hex');
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.float-menu', { state: 'detached' });
+  await page.keyboard.press('Control+t');
+  await until(async () => (await page.$$('.pane:not([hidden]) .prose')).length === 1, 'an empty note');
+  step('convert from the context menu: only what works, right below, the note unchanged');
 
   // ---------- trash and restore
   await page.click('[data-path="korpus0.md"]', { button: 'right' });

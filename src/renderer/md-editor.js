@@ -442,7 +442,8 @@ export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmp
       // One line per block and hard break. textContent would glue paragraphs together and count their edges as one word.
       const { doc } = editor.state;
       const text = doc.textBetween(0, doc.content.size, '\n', (leaf) => (leaf.type.name === 'hardBreak' ? '\n' : ''));
-      return `${count(text.trim().split(/\s+/).filter(Boolean).length, 'Wort', 'Wörter')} · ${count(text.split('\n').length, 'Zeile', 'Zeilen')}`;
+      // trimEnd: the editor keeps an empty paragraph after a list or table for the cursor, and nobody counts that as a line.
+      return `${count(text.trim().split(/\s+/).filter(Boolean).length, 'Wort', 'Wörter')} · ${count(text.trimEnd().split('\n').length, 'Zeile', 'Zeilen')}`;
     },
     /** JSON tools work on the selection or the code block under the cursor. */
     transform(fn) {

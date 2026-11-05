@@ -27,6 +27,8 @@ const COMPACT_MIN_BYTES = 256 * 1024;
 const BACKUP_TRIES = 10;
 // ponytail: a file above this is refused rather than opened; lifting it needs a paged editor and a delta-only journal.
 export const MAX_OPEN_BYTES = 128 * 1024 * 1024;
+// ponytail: conversions run in the window and block it while they do; lifting this needs a worker.
+const MAX_CONVERT_BYTES = 32 * 1024 * 1024;
 
 const sha = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const crcOf = (text) => crc32(text).toString(16).padStart(8, '0');
@@ -677,26 +679,33 @@ export class Store {
 
   // ---------------------------------------------------------------- tree
 
-  /** The notes folder as a tree. Hidden names, symlinks and our temp files are left out. */
+  /** One folder as the tree shows it. Hidden names, symlinks and our temp files are left out. */
+  async #listFolder(rel, order) {
+    const entries = await fs.readdir(rel ? this.#abs(rel) : this.vault, { withFileTypes: true }).catch(() => []);
+    const items = [];
+    for (const e of entries) {
+      if (e.name.startsWith('.') || e.isSymbolicLink()) continue;
+      const p = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) items.push({ type: 'folder', name: e.name, path: p });
+      else if (e.isFile()) items.push({ type: 'file', name: e.name, path: p });
+    }
+    const rank = new Map((order[rel] ?? []).map((n, i) => [n, i]));
+    return items.sort((a, b) => {
+      const ra = rank.get(a.name) ?? Infinity;
+      const rb = rank.get(b.name) ?? Infinity;
+      if (ra !== rb) return ra - rb;
+      if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
+      return a.name.localeCompare(b.name, 'de', { numeric: true, sensitivity: 'base' });
+    });
+  }
+
+  /** The notes folder as a tree. */
   async tree() {
     const order = await this.#readOrder();
     const walk = async (rel) => {
-      const entries = await fs.readdir(rel ? this.#abs(rel) : this.vault, { withFileTypes: true }).catch(() => []);
-      const items = [];
-      for (const e of entries) {
-        if (e.name.startsWith('.') || e.isSymbolicLink()) continue;
-        const p = rel ? `${rel}/${e.name}` : e.name;
-        if (e.isDirectory()) items.push({ type: 'folder', name: e.name, path: p, children: await walk(p) });
-        else if (e.isFile()) items.push({ type: 'file', name: e.name, path: p });
-      }
-      const rank = new Map((order[rel] ?? []).map((n, i) => [n, i]));
-      return items.sort((a, b) => {
-        const ra = rank.get(a.name) ?? Infinity;
-        const rb = rank.get(b.name) ?? Infinity;
-        if (ra !== rb) return ra - rb;
-        if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
-        return a.name.localeCompare(b.name, 'de', { numeric: true, sensitivity: 'base' });
-      });
+      const items = await this.#listFolder(rel, order);
+      for (const it of items) if (it.type === 'folder') it.children = await walk(it.path);
+      return items;
     };
     return { online: await this.#vaultOnline(), vault: this.vault, items: await walk('') };
   }
@@ -749,6 +758,41 @@ export class Store {
       await atomicWrite(this.#abs(rel), Buffer.alloc(0));
       this.emit({ type: 'tree' });
       return rel;
+    });
+  }
+
+  /** A note's bytes as they are on disk, with what was just typed in them. rel says where it is now: the last words can rename it. */
+  async readForConvert(rel) {
+    checkRel(rel);
+    return this.#vault(async () => {
+      const now = await this.#flushUnder(rel);
+      const { size, isFile } = await fs.stat(this.#abs(now)).then((st) => ({ size: st.size, isFile: st.isFile() }));
+      if (!isFile) throw new Error('Nur Dateien lassen sich konvertieren.');
+      if (size > MAX_CONVERT_BYTES) throw new Error('Die Datei ist größer als 32 MB und kann nicht konvertiert werden.');
+      return { rel: now, bytes: await fs.readFile(this.#abs(now)) };
+    });
+  }
+
+  /** A new note right below another one in the tree. Never overwrites: a taken name gets a number. */
+  async createBelow(rel, name, ext, bytes) {
+    checkRel(rel);
+    if (!FILE_EXT.test(ext) || !(bytes instanceof Uint8Array)) throw new Error('Ungültige Datei.');
+    return this.#vault(async () => {
+      if (!(await this.#vaultOnline())) throw new Error('Der Notizordner ist nicht erreichbar.');
+      const folder = path.posix.dirname(rel) === '.' ? '' : path.posix.dirname(rel);
+      const dest = await this.#freeRel(folder, safeName(name), ext);
+      await atomicWrite(this.#abs(dest), Buffer.from(bytes));
+      this.#toBackup({ copy: path.join('notizen', ...dest.split('/')), bytes: Buffer.from(bytes) });
+      // The order has to name the whole folder: what it leaves out sorts behind what it names.
+      const order = await this.#readOrder();
+      const newName = path.posix.basename(dest);
+      const names = (await this.#listFolder(folder, order)).map((it) => it.name).filter((n) => n !== newName);
+      const at = names.indexOf(path.posix.basename(rel));
+      names.splice(at < 0 ? names.length : at + 1, 0, newName);
+      order[folder] = names;
+      await atomicWrite(path.join(this.vault, META, 'order.json'), Buffer.from(JSON.stringify(order, null, 2)));
+      this.emit({ type: 'tree' });
+      return dest;
     });
   }
 

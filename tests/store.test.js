@@ -611,6 +611,45 @@ test('a note typed and erased again goes to the trash with its tab, a named one 
   await store.shutdown();
 });
 
+test('a converted note lands right below the original, overwrites nothing and reaches the backup', async () => {
+  const s = await sandbox();
+  const backup = await backupOf(s);
+  await fs.mkdir(path.join(s.vault, 'P'));
+  for (const n of ['a.md', 'b.md', 'c.md', 'b.json']) await fs.writeFile(path.join(s.vault, 'P', n), n);
+  const { store } = await boot(s, { backup });
+  const names = async () => (await store.tree()).items.find((i) => i.name === 'P').children.map((c) => c.name);
+
+  const dest = await store.createBelow('P/a.md', 'b', '.json', new TextEncoder().encode('neu'));
+  assert.equal(dest, 'P/b 2.json', 'b.json is taken');
+  assert.equal(await read(s, 'P/b.json'), 'b.json', 'and stays as it is');
+  assert.deepEqual(await names(), ['a.md', 'b 2.json', 'b.json', 'b.md', 'c.md']);
+  await store.createBelow('P/c.md', 'z', '.txt', new TextEncoder().encode('z'));
+  assert.deepEqual(await names(), ['a.md', 'b 2.json', 'b.json', 'b.md', 'c.md', 'z.txt']);
+  assert.equal(await read(s, 'P/a.md'), 'a.md', 'the original is untouched');
+  await store.syncBackup();
+  assert.equal(await fs.readFile(path.join(backup, 'notizen', 'P', 'b 2.json'), 'utf8'), 'neu');
+
+  await assert.rejects(store.createBelow('../x.md', 'n', '.txt', new Uint8Array(1)));
+  await assert.rejects(store.createBelow('P/a.md', 'n', '.t/../x', new Uint8Array(1)));
+  await assert.rejects(store.createBelow('P/a.md', 'n', '.txt', 'kein Inhalt'));
+  await store.shutdown();
+});
+
+test('reading for a conversion includes what was just typed and follows the rename it caused', async () => {
+  const s = await sandbox();
+  const { store } = await boot(s);
+  const doc = await store.create();
+  await store.update(doc.id, 'Alt');
+  await store.commit(doc.id);
+  await store.update(doc.id, 'Neu');
+  const { rel, bytes } = await store.readForConvert('Eingang/Alt.md');
+  assert.equal(rel, 'Eingang/Neu.md');
+  assert.equal(Buffer.from(bytes).toString(), 'Neu');
+  await assert.rejects(store.readForConvert('../geheim.txt'));
+  await assert.rejects(store.readForConvert('Eingang'), /Nur Dateien/);
+  await store.shutdown();
+});
+
 test('changing the notes folder copies and verifies, overwrites nothing, leaves the old one alone', async () => {
   const s = await sandbox();
   await fs.writeFile(path.join(s.vault, 'a.md'), 'alt');
