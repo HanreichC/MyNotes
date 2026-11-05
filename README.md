@@ -41,8 +41,8 @@ Each open document has its own journal on the local disk. Within 150 ms of a key
 Three more things catch what the journal can't:
 
 - The history keeps the state before your first change, a version every 5 minutes and one when you close the tab. Nothing in it is deleted automatically.
-- Deleting moves a note to `.trash` in your notes folder. Only emptying the trash deletes for real, and you have to confirm that.
-- A second backup location in the settings, such as another drive or a NAS, gets a copy of your notes and history. Nothing there is ever deleted.
+- Deleting moves a note to `.trash` in your notes folder. Only emptying the trash deletes for real, along with the versions of those notes, and you have to confirm that.
+- A second backup location in the settings, such as another drive or a NAS, gets a copy of your notes and history and follows what you do in the app: rename, move, delete, restore or empty the trash, and the same happens there, even if it was unplugged at the time. It never deletes a file only because that file is missing from the notes folder, so a dead drive can't wipe your backup. A note you delete outside the app while it isn't open therefore stays in the backup.
 
 Your notes are plain files. You can open them with anything, or sync them with Nextcloud, OneDrive or Git.
 
@@ -50,9 +50,9 @@ Your notes are plain files. You can open them with anything, or sync them with N
 
 ## Open a tab. Start typing.
 
-Press `Ctrl+T` and type, the same as in Notepad++. With the first character the tab becomes a real file in the folder `Eingang` (inbox), named after the start of its first line (40 characters at most, cut at a word). Right-click the `+` to open a file, a note or a closed tab instead. Rename it or drag it into a folder and the name stays yours from then on. A tab you never typed in leaves nothing behind.
+Press `Ctrl+T` and type, the same as in Notepad++. With the first character the tab becomes a real file in the folder `Eingang` (inbox), named after the start of its first line (40 characters at most, cut at a word). Right-click the `+` to open a file, a note or a closed tab instead. Rename it or drag it into a folder and the name stays yours from then on. A tab you never typed in leaves nothing behind, and a new note you erased again goes to the trash when you close it.
 
-Closing a tab never asks anything, and `Ctrl+Shift+T` brings it back.
+Closing a tab never asks anything and keeps the note, and `Ctrl+Shift+T` brings it back. To get rid of a note, right-click its tab or its entry in the tree and choose `In den Papierkorb legen`.
 
 To compare two notes, drag a tab onto the editor and drop it on the left or right half. Both stay editable, and the arrangement comes back after a restart. The `×` above a side hides it and leaves its tab open. It doesn't mark differences or scroll both sides together.
 
@@ -234,7 +234,8 @@ npm run e2e   # the real app in a real window
 - The interface is German only.
 - Macros, file compare, hex view, plugins and links between notes aren't implemented. They come if they turn out to be missed.
 - Sync between computers isn't built in. Use Nextcloud, OneDrive or Git on the notes folder; conflicts end up as copies next to the note.
-- The history only grows. Notes are small, but nothing thins it out yet.
+- The history of a note only grows until the note is deleted for good. Notes are small, but nothing thins it out yet.
+- Pasted images stay in `.mynotes/assets` after the note that used them is deleted.
 - Search skips files above 5 MB and stops at 500 hits.
 
 <br>

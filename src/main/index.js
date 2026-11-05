@@ -220,9 +220,8 @@ function registerIpc() {
       if (within(settings.vault, dir) || within(dir, settings.vault)) throw new Error('Der Sicherungsort darf nicht im Notizordner liegen. Wähle ein anderes Laufwerk oder einen anderen Ordner.');
     }
     settings.backup = dir;
-    store.backup = dir;
     await saveSettings();
-    store.syncBackup();
+    store.setBackup(dir);
     return settings;
   });
 

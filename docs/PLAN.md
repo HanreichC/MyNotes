@@ -64,9 +64,9 @@ Zum Vergleich: Notepad++ sichert standardmäßig alle 7 Sekunden (`_snapshotBack
 |---|---|---|
 | Journal | Absturz, `kill -9`, Stromausfall | Append-only, je Datensatz Prüfsumme und `fsync`, ein abgerissener letzter Datensatz wird beim Lesen erkannt und verworfen |
 | Atomares Schreiben | Halb geschriebene Dateien | Die alte Datei bleibt ganz, bis die neue vollständig auf der Platte liegt |
-| Verlauf | Versehentliches Löschen von Text, schlechte Umwandlung | Stand vor der ersten Änderung, danach alle 5 min und beim Schließen. Wird in Version 1 nie automatisch gelöscht |
+| Verlauf | Versehentliches Löschen von Text, schlechte Umwandlung | Stand vor der ersten Änderung, danach alle 5 min und beim Schließen. Wird nie automatisch gelöscht, nur zusammen mit der Notiz beim Leeren des Papierkorbs |
 | Papierkorb | Gelöschte Notizen | Löschen verschiebt nach `.trash/` im Notizordner, Leeren nur auf ausdrücklichen Wunsch |
-| Zweiter Sicherungsort | Plattenausfall, Verlust des Rechners | Optionaler Ordner, zum Beispiel NAS oder USB. Dort wird nie etwas gelöscht |
+| Zweiter Sicherungsort | Plattenausfall, Verlust des Rechners | Optionaler Ordner, zum Beispiel NAS oder USB. Folgt dem, was in der App passiert, siehe § 3.8 |
 
 ### 3.3 Wiederherstellung beim Start
 
@@ -115,6 +115,22 @@ Absolute Sicherheit kann keine Software versprechen. Das bleibt offen:
 | `tests/store.test.js` | Journal, abgerissene Datensätze, jede Zeile der Tabelle in § 3.3, Pfad-Ausbruch |
 | `tests/crash.test.js` | Schreibprozess wird in einer Schleife per `kill -9` beendet. Jede bestätigte Änderung muss danach vorhanden sein |
 | `tests/e2e.mjs` | Echte App: tippen, Prozess hart beenden, neu starten, Text und Tabs sind wieder da |
+
+### 3.8 Kein Datenmüll
+
+Daten sollen nicht verloren gehen, aber auch nicht liegen bleiben.
+
+| Aktion in der App | Notizordner | Zweiter Sicherungsort |
+|---|---|---|
+| Umbenennen, Verschieben, Titel folgt der ersten Zeile | Datei und Verlauf ziehen um | Datei und Verlauf ziehen genauso um |
+| In den Papierkorb legen | Nach `.trash/` | Nach `.trash/` |
+| Wiederherstellen | Zurück | Zurück |
+| Papierkorb leeren (mit Rückfrage) | Dateien und ihr Verlauf sind weg | Dateien und ihr Verlauf sind weg |
+| Neue Notiz wieder geleert und Tab geschlossen | Nach `.trash/` | Nach `.trash/` |
+
+Der Sicherungsort folgt nur Entscheidungen des Nutzers. Er vergleicht nie die Ordner und löscht, was fehlt: Eine tote Platte oder ein entgleistes Sync-Tool sieht genauso aus wie „alles wurde gelöscht“, und genau dann wird er gebraucht. Dateien, die außerhalb der App verschwinden und nicht offen sind, bleiben dort deshalb liegen.
+
+Ist der Sicherungsort nicht erreichbar, warten die Entscheidungen der Reihe nach in `backup-pending.json` im lokalen Datenordner, auch über einen Neustart hinweg. Ein fehlender Sicherungsort wird nie neu angelegt. Ein Schritt, der zehnmal scheitert, wird aufgegeben: Eine liegen gebliebene Datei ist besser als ein Sicherungsort, der keine Kopien mehr bekommt.
 
 ## 4. Schutz bei WYSIWYG
 

@@ -101,14 +101,32 @@ try {
     const hwnd = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getNativeWindowHandle().readBigUInt64LE().toString());
     const doubleClick = (where) => execFileSync('powershell', ['-NoProfile', '-Command', `(Add-Type -PassThru -Namespace W -Name U -MemberDefinition '[DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);')::PostMessage([IntPtr]${hwnd}, 0xA3, [IntPtr]${where}, [IntPtr]0)`]);
     const maximized = (want) => until(() => page.evaluate((w) => document.documentElement.hasAttribute('data-maximized') === w, want), `maximized: ${want}`);
-    doubleClick(2);
-    await maximized(true);
-    doubleClick(2);
-    await maximized(false);
-    doubleClick(12); // the top edge is not the title
-    await new Promise((r) => setTimeout(r, 300));
-    await maximized(false);
-    step('double click on the title row: maximized and back');
+    const screenFits = await app.evaluate(({ BrowserWindow, screen }) => {
+      const { width, height } = screen.getPrimaryDisplay().workArea;
+      const [minW, minH] = BrowserWindow.getAllWindows()[0].getMinimumSize();
+      return width > minW && height > minH;
+    });
+    if (screenFits) {
+      doubleClick(2);
+      await maximized(true);
+      doubleClick(2);
+      await maximized(false);
+      doubleClick(12); // the top edge is not the title
+      await new Promise((r) => setTimeout(r, 300));
+      await maximized(false);
+      step('double click on the title row: maximized and back');
+    } else {
+      // The CI runner's screen is smaller than the window's minimum size. A transparent window then cannot fill it and
+      // never counts as maximized, so all there is to see is that the message arrives: Electron still reports the attempt.
+      await app.evaluate(({ BrowserWindow }) => { globalThis.maximizeTries = 0; BrowserWindow.getAllWindows()[0].on('maximize', () => { globalThis.maximizeTries++; }); });
+      const tries = () => app.evaluate(() => globalThis.maximizeTries);
+      doubleClick(12); // the top edge is not the title
+      await new Promise((r) => setTimeout(r, 300));
+      assert.equal(await tries(), 0);
+      doubleClick(2);
+      await until(async () => (await tries()) === 1, 'the double click reached the window');
+      step('double click on the title row reaches the window (screen smaller than the window, it cannot grow)');
+    }
   }
 
   // ---------- the plus button: a click opens a tab at once, a right click offers the rest; the three dots are gone
@@ -495,7 +513,15 @@ try {
   await page.click('text=Wiederherstellen');
   await until(async () => (await fs.readdir(vault)).includes('korpus0.md'), 'restored');
   await page.keyboard.press('Escape');
-  step('trash and restore');
+  await newTab(page);
+  await page.keyboard.type('Wegwerfnotiz');
+  await until(() => read('Eingang/Wegwerfnotiz.md').then((t) => t === 'Wegwerfnotiz'), 'new note written');
+  const withThrowaway = (await tabNames(page)).length;
+  await page.click('.tab.is-active', { button: 'right' });
+  await page.click('.float-menu >> text=In den Papierkorb legen');
+  await until(async () => (await tabNames(page)).length === withThrowaway - 1, 'its tab is gone');
+  assert.ok(!(await fs.readdir(path.join(vault, 'Eingang'))).includes('Wegwerfnotiz.md'));
+  step('trash and restore, also from the tab of a brand-new note');
 
   // ---------- full-text search
   await page.keyboard.press('Control+Shift+f');

@@ -24,6 +24,7 @@ const COMMIT_MAX_MS = 10_000;
 const RETRY_MS = 5000;
 const SNAPSHOT_EVERY_MS = 5 * 60_000;
 const COMPACT_MIN_BYTES = 256 * 1024;
+const BACKUP_TRIES = 10;
 // ponytail: a file above this is refused rather than opened; lifting it needs a paged editor and a delta-only journal.
 export const MAX_OPEN_BYTES = 128 * 1024 * 1024;
 
@@ -160,6 +161,10 @@ export class Store {
     // ponytail: one queue for everything touching the notes folder keeps moves, commits and external checks
     // from racing. A hanging network share stalls this queue but never the journal, which is what keeps typing safe.
     this.queue = Promise.resolve();
+    this.backupOpsFile = path.join(dataDir, 'backup-pending.json');
+    this.backupQ = [];
+    this.backupSaved = '[]';
+    this.backupTail = Promise.resolve();
   }
 
   #vault(fn) {
@@ -193,6 +198,10 @@ export class Store {
   async start() {
     await fs.mkdir(this.journalDir, { recursive: true });
     await fs.mkdir(this.historyDir, { recursive: true });
+    try {
+      this.backupQ = JSON.parse(await fs.readFile(this.backupOpsFile, 'utf8'));
+      this.backupSaved = JSON.stringify(this.backupQ);
+    } catch { /* nothing owed to the backup */ }
     for (const f of await fs.readdir(this.journalDir)) {
       if (!f.endsWith('.log')) continue;
       const jpath = path.join(this.journalDir, f);
@@ -283,10 +292,13 @@ export class Store {
     const bytes = encode(doc.text, doc) ?? Buffer.from(doc.text);
     await this.#snapshot(doc, bytes);
     if (doc.path) {
-      const dir = path.join(this.vault, TRASH, `${stamp()}-${randomUUID().slice(0, 6)}`);
+      const id = `${stamp()}-${randomUUID().slice(0, 6)}`;
+      const dir = path.join(this.vault, TRASH, id);
       const name = path.posix.basename(doc.path);
+      const meta = { rel: doc.path, name, isDir: false, deletedAt: Date.now() };
       await atomicWrite(path.join(dir, name), bytes);
-      await atomicWrite(path.join(dir, 'meta.json'), Buffer.from(JSON.stringify({ rel: doc.path, name, isDir: false, deletedAt: Date.now() })));
+      await atomicWrite(path.join(dir, 'meta.json'), Buffer.from(JSON.stringify(meta)));
+      this.#toBackup({ op: 'trash', id, meta });
     }
     this.notices.push({ kind: 'warning', text: `„${this.#name(doc)}“ wurde außerhalb der App gelöscht. Der letzte Stand liegt im Papierkorb.` });
     await this.#dropJournal(doc);
@@ -314,6 +326,7 @@ export class Store {
       await d.fh?.close().catch(() => {});
       d.fh = null;
     })));
+    await this.backupTail;
   }
 
   // ---------------------------------------------------------------- documents
@@ -465,6 +478,7 @@ export class Store {
       if (!text) return;
       doc.path = await this.#freeRel(INBOX, nameFromText(text, doc.ext), doc.ext);
       await this.#journal(doc, () => this.#append(doc, { t: 'm', m: { path: doc.path } }));
+      this.emit({ type: 'meta', doc: this.#public(doc) });
       this.emit({ type: 'tree' });
     }
 
@@ -520,6 +534,8 @@ export class Store {
     doc.closing = true;
     if (doc.flushing) await doc.flushing;
     if (!doc.path && !doc.external && !doc.latest) return this.#dropJournal(doc); // an untouched empty tab leaves nothing behind
+    // Typed and erased again: no note worth a file. The trash and the history still have what it was.
+    if (doc.path && doc.autoTitle && !doc.latest.trim()) return this.trash(doc.path).catch(() => this.commit(id).catch(() => {}));
     await this.commit(id).catch(() => {}); // keeps retrying; the note comes back as a tab if the app ends first
   }
 
@@ -629,10 +645,7 @@ export class Store {
     const file = path.join(dir, `${stamp()}-${randomUUID().slice(0, 4)}-${hash}.gz`);
     const gz = await gzip(bytes);
     await atomicWrite(file, gz);
-    if (this.backup) {
-      const rel = path.relative(this.historyDir, file);
-      atomicWrite(path.join(this.backup, 'verlauf', rel), gz).catch((e) => this.#mirrorFailed(e));
-    }
+    this.#toBackup({ copy: path.join('verlauf', path.relative(this.historyDir, file)), bytes: gz });
   }
 
   /** @returns {{version: string, date: number, size: number}[]} newest first */
@@ -745,6 +758,7 @@ export class Store {
     checkRel(destFolder, { allowEmpty: true });
     if (destFolder === rel || destFolder.startsWith(`${rel}/`)) throw new Error('Ein Ordner kann nicht in sich selbst verschoben werden.');
     return this.#vault(async () => {
+      rel = await this.#flushUnder(rel);
       const oldName = path.posix.basename(rel);
       const st = await fs.stat(this.#abs(rel));
       const [oldStem, oldExt] = st.isDirectory() ? [oldName, ''] : splitExt(oldName);
@@ -762,7 +776,6 @@ export class Store {
       const dest = sameFolder && `${stem}${ext}`.toLowerCase() === oldName.toLowerCase()
         ? (destFolder ? `${destFolder}/` : '') + stem + ext
         : await this.#freeRel(destFolder, stem, ext);
-      await this.#flushUnder(rel);
       await this.#renameInVault(rel, dest);
       for (const d of this.docs.values()) {
         if (d.autoTitle && (d.path === dest || d.path?.startsWith(`${dest}/`))) {
@@ -775,10 +788,13 @@ export class Store {
     });
   }
 
+  /** @returns where the note is now: the last words typed can change the name of a note that follows its title. */
   async #flushUnder(rel) {
+    const self = [...this.docs.values()].find((d) => d.path === rel);
     for (const d of this.docs.values()) {
       if (d.path === rel || d.path?.startsWith(`${rel}/`)) await this.#commitNow(d);
     }
+    return self?.path ?? rel;
   }
 
   /** Runs inside the queue. Journals and history follow the file. */
@@ -801,11 +817,13 @@ export class Store {
       this.emit({ type: 'meta', doc: this.#public(d) });
     }
     await this.#renameInOrder(rel, dest);
+    this.#toBackup({ op: 'move', from: rel, to: dest });
     this.emit({ type: 'tree' });
   }
 
   async #mergeInto(from, to) {
-    if (!(await exists(to))) return fs.rename(from, to);
+    // Only the case changed: on Windows both names are this one folder, and merging would delete it.
+    if (!(await exists(to)) || from.toLowerCase() === to.toLowerCase()) return renameRetry(from, to);
     for (const e of await fs.readdir(from, { withFileTypes: true })) {
       const f = path.join(from, e.name);
       const t = path.join(to, e.name);
@@ -860,7 +878,7 @@ export class Store {
   async trash(rel) {
     checkRel(rel);
     return this.#vault(async () => {
-      await this.#flushUnder(rel);
+      rel = await this.#flushUnder(rel);
       const under = [...this.docs.values()].filter((d) => d.path === rel || d.path?.startsWith(`${rel}/`));
       for (const d of under) {
         const bytes = encode(d.text, d);
@@ -869,10 +887,13 @@ export class Store {
       const abs = this.#abs(rel);
       const st = await fs.stat(abs);
       const name = path.posix.basename(rel);
-      const dir = path.join(this.vault, TRASH, `${stamp()}-${randomUUID().slice(0, 6)}`);
+      const id = `${stamp()}-${randomUUID().slice(0, 6)}`;
+      const dir = path.join(this.vault, TRASH, id);
+      const meta = { rel, name, isDir: st.isDirectory(), deletedAt: Date.now() };
       await fs.mkdir(dir, { recursive: true });
-      await atomicWrite(path.join(dir, 'meta.json'), Buffer.from(JSON.stringify({ rel, name, isDir: st.isDirectory(), deletedAt: Date.now() })));
+      await atomicWrite(path.join(dir, 'meta.json'), Buffer.from(JSON.stringify(meta)));
       await renameRetry(abs, path.join(dir, name));
+      this.#toBackup({ op: 'trash', id, meta });
       for (const d of under) {
         await this.#dropJournal(d);
         this.emit({ type: 'closed', id: d.id });
@@ -908,32 +929,130 @@ export class Store {
       await fs.mkdir(path.dirname(this.#abs(dest)), { recursive: true });
       await renameRetry(path.join(dir, meta.name), this.#abs(dest));
       await fs.rm(dir, { recursive: true, force: true });
+      this.#toBackup({ op: 'restore', id, name: meta.name, to: dest });
       this.emit({ type: 'tree' });
       return dest;
     });
   }
 
-  /** The only real delete in the app, and only ever after the user confirmed it. The history stays. */
+  /** The only real delete in the app, and only ever after the user confirmed it: the notes, their versions, and both in the backup. */
   async emptyTrash() {
-    return this.#vault(() => fs.rm(path.join(this.vault, TRASH), { recursive: true, force: true }));
+    return this.#vault(async () => {
+      if (!(await this.#vaultOnline())) throw new Error('Der Notizordner ist nicht erreichbar.');
+      const entries = await this.listTrash();
+      await fs.rm(path.join(this.vault, TRASH), { recursive: true, force: true });
+      const history = [];
+      for (const { rel } of entries) {
+        try { checkRel(rel); } catch { continue; } // meta.json is only a file in a folder: it decides nothing about what gets deleted
+        // ponytail: versions are filed by name, so a new note with the old name keeps the old versions too.
+        if (await exists(this.#abs(rel))) continue;
+        await fs.rm(path.join(this.historyDir, 'notes', ...rel.split('/')), { recursive: true, force: true });
+        history.push(rel);
+      }
+      this.#toBackup({ op: 'empty', history });
+    });
   }
 
   // ---------------------------------------------------------------- second backup location
+  //
+  // The backup follows what the user did, step by step. It never compares folders and deletes what is missing:
+  // a dead drive or a sync tool gone wrong looks like "everything was deleted", and that is the moment the backup exists for.
 
   #mirrorFailed(e) { this.emit({ type: 'backup-error', error: e.message }); }
 
   #mirrorNote(doc, bytes) {
-    if (!this.backup || !doc.path) return;
-    atomicWrite(path.join(this.backup, 'notizen', ...doc.path.split('/')), bytes, doc.mode)
-      .then(() => this.emit({ type: 'backup-ok' }), (e) => this.#mirrorFailed(e));
+    if (doc.path) this.#toBackup({ copy: path.join('notizen', ...doc.path.split('/')), bytes, mode: doc.mode });
   }
 
-  /** Brings the backup up to date: what changed while it was unplugged. Nothing in it is ever deleted. */
-  async syncBackup() {
-    if (!this.backup) return;
-    const copyTree = async (from, to, skip) => {
+  /**
+   * One line for everything, in the order it happened, so a late copy cannot bring back a renamed or deleted file.
+   * A step with `op` was the user's decision: it is kept on disk until the backup has done it. Copies can go, the next sync repeats them.
+   * ponytail: a hanging network drive stalls this line and holds its copies in memory; a timeout per step would bound that.
+   */
+  #toBackup(item) {
+    if (!this.backup) return Promise.resolve();
+    this.backupQ.push(item);
+    return (this.backupTail = this.backupTail.then(() => this.#drainBackup()));
+  }
+
+  async #saveBackupOps() {
+    const json = JSON.stringify(this.backupQ.filter((i) => i.op));
+    if (json === this.backupSaved) return;
+    try {
+      await atomicWrite(this.backupOpsFile, Buffer.from(json));
+      this.backupSaved = json;
+    } catch (e) { this.#mirrorFailed(e); }
+  }
+
+  async #drainBackup() {
+    await this.#saveBackupOps();
+    const halt = (e) => {
+      this.backupQ = this.backupQ.filter((i) => i.op);
+      this.#mirrorFailed(e);
+    };
+    while (this.backupQ.length) {
+      const item = this.backupQ[0];
+      // Never mkdir a missing backup: it may be an unplugged drive, and the copies would land where nobody looks for them.
+      if (!(await exists(this.backup))) return halt(new Error('Der Sicherungsort ist nicht erreichbar.'));
+      try {
+        await this.#applyToBackup(item);
+        this.emit({ type: 'backup-ok' });
+      } catch (e) {
+        // ponytail: a step that keeps failing is given up, which leaves a stray file. Better than a backup that stops getting copies.
+        if (item.op && (item.tries = (item.tries ?? 0) + 1) < BACKUP_TRIES) return halt(e);
+        this.#mirrorFailed(e);
+      }
+      if (this.backupQ[0] === item) this.backupQ.shift();
+      if (item.op) await this.#saveBackupOps();
+    }
+  }
+
+  async #applyToBackup(item) {
+    if (item.copy) return atomicWrite(path.join(this.backup, item.copy), item.bytes, item.mode);
+    if (item.sync) return this.#copyAllToBackup();
+    const notes = (rel) => path.join(this.backup, 'notizen', ...rel.split('/'));
+    const versions = (rel) => path.join(this.backup, 'verlauf', 'notes', ...rel.split('/'));
+    const trashed = (id, name) => path.join(this.backup, 'notizen', TRASH, id, name);
+    if (item.op === 'move') {
+      await this.#moveInBackup(notes(item.from), notes(item.to));
+      await this.#moveInBackup(versions(item.from), versions(item.to));
+    } else if (item.op === 'trash') {
+      if (await this.#moveInBackup(notes(item.meta.rel), trashed(item.id, item.meta.name))) {
+        await atomicWrite(trashed(item.id, 'meta.json'), Buffer.from(JSON.stringify(item.meta)));
+      }
+    } else if (item.op === 'restore') {
+      await this.#moveInBackup(trashed(item.id, item.name), notes(item.to));
+      await fs.rm(path.dirname(trashed(item.id, item.name)), { recursive: true, force: true });
+    } else if (item.op === 'empty') {
+      await fs.rm(path.join(this.backup, 'notizen', TRASH), { recursive: true, force: true });
+      for (const rel of item.history) await fs.rm(versions(rel), { recursive: true, force: true });
+    }
+  }
+
+  /** @returns whether there was something to move. A file that never got there, or moved on the last run, is fine. */
+  async #moveInBackup(from, to) {
+    const st = await fs.stat(from).catch(() => null);
+    if (!st) return false;
+    await fs.mkdir(path.dirname(to), { recursive: true });
+    if (st.isDirectory()) await this.#mergeInto(from, to);
+    else await renameRetry(from, to); // replaces what is there: that name was free in the notes folder, so it is a leftover
+    return true;
+  }
+
+  /** A different folder starts fresh: what was still owed to the old one means nothing there. */
+  setBackup(dir) {
+    this.backup = dir;
+    this.backupQ = [];
+    return this.syncBackup();
+  }
+
+  /** Brings the backup up to date: first what was decided while it was unplugged, then copies of what changed. */
+  syncBackup() { return this.#toBackup({ sync: true }); }
+
+  async #copyAllToBackup() {
+    const copyTree = async (from, to) => {
       for (const e of await fs.readdir(from, { withFileTypes: true }).catch(() => [])) {
-        if (e.isSymbolicLink() || e.name.endsWith(TMP_SUFFIX) || skip?.(e.name)) continue;
+        if (e.isSymbolicLink() || e.name.endsWith(TMP_SUFFIX)) continue;
         const f = path.join(from, e.name);
         const t = path.join(to, e.name);
         if (e.isDirectory()) { await copyTree(f, t); continue; }
@@ -943,11 +1062,8 @@ export class Store {
         await atomicWrite(t, await fs.readFile(f));
       }
     };
-    try {
-      await copyTree(this.vault, path.join(this.backup, 'notizen'));
-      await copyTree(this.historyDir, path.join(this.backup, 'verlauf'));
-      this.emit({ type: 'backup-ok' });
-    } catch (e) { this.#mirrorFailed(e); }
+    await copyTree(this.vault, path.join(this.backup, 'notizen'));
+    await copyTree(this.historyDir, path.join(this.backup, 'verlauf'));
   }
 
   // ---------------------------------------------------------------- changing the notes folder

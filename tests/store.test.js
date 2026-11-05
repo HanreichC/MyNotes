@@ -25,6 +25,9 @@ async function die(store) {
 }
 
 const read = (s, rel) => fs.readFile(path.join(s.vault, ...rel.split('/')), 'utf8');
+const present = (p) => fs.access(p).then(() => true, () => false);
+const filesUnder = async (dir) => (await fs.readdir(dir, { recursive: true, withFileTypes: true })).filter((e) => e.isFile()).map((e) => e.name);
+const backupOf = async (s) => { const dir = path.join(s.root, 'backup'); await fs.mkdir(dir); return dir; };
 
 test('replay stops at a torn or corrupt record and keeps everything before it', () => {
   const base = { t: 'base', id: 'a', text: '', seq: 0, committedSeq: 0 };
@@ -396,7 +399,7 @@ test('a character the encoding cannot hold changes the encoding, it is not dropp
 
 test('history keeps versions and a backup folder mirrors notes and history', async () => {
   const s = await sandbox();
-  const backup = path.join(s.root, 'backup');
+  const backup = await backupOf(s);
   const { store } = await boot(s, { backup });
   const doc = await store.create();
   await store.update(doc.id, 'Version eins');
@@ -407,6 +410,204 @@ test('history keeps versions and a backup folder mirrors notes and history', asy
   assert.equal(await fs.readFile(path.join(backup, 'notizen', 'Eingang', 'Version zwei.md'), 'utf8'), 'Version zwei');
   const versions = await store.history({ id: doc.id });
   assert.equal(await store.readVersion({ id: doc.id }, versions.at(-1).version), 'Version eins');
+  await store.shutdown();
+});
+
+test('the backup follows every rename instead of collecting the names a title went through', async () => {
+  const s = await sandbox();
+  const backup = await backupOf(s);
+  const { store } = await boot(s, { backup });
+  const doc = await store.create();
+  for (const text of ['Ein', 'Einkauf', 'Einkaufsliste']) {
+    await store.update(doc.id, text);
+    await store.commit(doc.id);
+  }
+  await store.syncBackup();
+  assert.deepEqual(await filesUnder(path.join(backup, 'notizen', 'Eingang')), ['Einkaufsliste.md']);
+  assert.deepEqual(await fs.readdir(path.join(backup, 'verlauf', 'notes', 'Eingang')), ['Einkaufsliste.md']);
+
+  await store.createFolder('', 'Projekte');
+  await store.move('Eingang/Einkaufsliste.md', 'Projekte', 'Liste');
+  await store.syncBackup();
+  assert.deepEqual(await filesUnder(path.join(backup, 'notizen', 'Eingang')), []);
+  assert.deepEqual(await filesUnder(path.join(backup, 'notizen', 'Projekte')), ['Liste.md']);
+  await store.shutdown();
+});
+
+test('deleting reaches the backup: trash, restore and emptying the trash, history included', async () => {
+  const s = await sandbox();
+  const backup = await backupOf(s);
+  const { store } = await boot(s, { backup });
+  const doc = await store.create();
+  await store.update(doc.id, 'Weg');
+  await store.commit(doc.id);
+  await store.syncBackup();
+  const inBackup = path.join(backup, 'notizen', 'Eingang', 'Weg.md');
+  assert.ok(await present(inBackup));
+
+  await store.trash('Eingang/Weg.md');
+  await store.syncBackup();
+  assert.ok(!(await present(inBackup)), 'gone from where notes are');
+  const [entry] = await store.listTrash();
+  assert.equal(await fs.readFile(path.join(backup, 'notizen', '.trash', entry.id, 'Weg.md'), 'utf8'), 'Weg', 'still safe in the trash there');
+
+  await store.restoreTrash(entry.id);
+  await store.syncBackup();
+  assert.equal(await fs.readFile(inBackup, 'utf8'), 'Weg');
+  assert.ok(!(await present(path.join(backup, 'notizen', '.trash', entry.id))));
+
+  await store.trash('Eingang/Weg.md');
+  await store.emptyTrash();
+  await store.syncBackup();
+  assert.deepEqual(await filesUnder(path.join(backup, 'notizen')), []);
+  assert.deepEqual(await filesUnder(path.join(backup, 'verlauf')), []);
+  assert.deepEqual(await filesUnder(store.historyDir), [], 'and the local versions of it');
+  await store.shutdown();
+});
+
+test('emptying the trash keeps the history of a new note with the old name', async () => {
+  const s = await sandbox();
+  const { store } = await boot(s);
+  const first = await store.openNote(await store.createNote('', 'n.md'));
+  await store.update(first.id, 'alt');
+  await store.close(first.id);
+  await store.trash('n.md');
+  const next = await store.openNote(await store.createNote('', 'n.md'));
+  await store.update(next.id, 'neu');
+  await store.close(next.id);
+  await store.emptyTrash();
+  assert.ok((await store.history({ path: 'n.md' })).length > 0);
+  await store.shutdown();
+});
+
+test('a trash entry with a forged path cannot delete anything when the trash is emptied', async () => {
+  const s = await sandbox();
+  const { store } = await boot(s);
+  const dir = path.join(s.vault, '.trash', 'forged');
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(path.join(dir, 'meta.json'), JSON.stringify({ rel: '../../journal', name: 'x', isDir: true, deletedAt: 1 }));
+  await store.emptyTrash();
+  assert.ok(await present(store.journalDir));
+  await store.shutdown();
+});
+
+test('a backup that was away catches up in order, even after a restart, and never gets a stand-in folder', async () => {
+  const s = await sandbox();
+  const backup = await backupOf(s);
+  const first = await boot(s, { backup });
+  const doc = await first.store.create();
+  await first.store.update(doc.id, 'Erst');
+  await first.store.commit(doc.id);
+  await first.store.syncBackup();
+
+  const unplugged = `${backup}-unplugged`;
+  await fs.rename(backup, unplugged);
+  await first.store.update(doc.id, 'Danach');
+  await first.store.commit(doc.id);
+  await first.store.trash('Eingang/Danach.md');
+  await first.store.syncBackup();
+  assert.ok(!(await present(backup)), 'no replacement folder where the drive used to be');
+  assert.ok(first.events.some((e) => e.type === 'backup-error'));
+  await first.store.shutdown();
+
+  await fs.rename(unplugged, backup);
+  const second = await boot(s, { backup });
+  await second.store.syncBackup();
+  assert.deepEqual(await filesUnder(path.join(backup, 'notizen', 'Eingang')), []);
+  const [entry] = await second.store.listTrash();
+  assert.equal(await fs.readFile(path.join(backup, 'notizen', '.trash', entry.id, 'Danach.md'), 'utf8'), 'Danach');
+  await second.store.shutdown();
+});
+
+test('files missing from the notes folder are never deleted from the backup', async () => {
+  const s = await sandbox();
+  const backup = await backupOf(s);
+  await fs.mkdir(path.join(s.vault, 'P'));
+  await fs.writeFile(path.join(s.vault, 'P', 'n.md'), 'wichtig');
+  const first = await boot(s, { backup });
+  await first.store.syncBackup();
+  await first.store.shutdown();
+
+  // A dead or swapped drive looks exactly like this: the folder is there and empty.
+  await fs.rm(s.vault, { recursive: true });
+  await fs.mkdir(s.vault);
+  const second = await boot(s, { backup });
+  await second.store.syncBackup();
+  assert.equal(await fs.readFile(path.join(backup, 'notizen', 'P', 'n.md'), 'utf8'), 'wichtig');
+  await second.store.shutdown();
+});
+
+test('a backup step that keeps failing gives up instead of stopping the copies for good', async () => {
+  const s = await sandbox();
+  const backup = await backupOf(s);
+  const { store } = await boot(s, { backup });
+  const doc = await store.create();
+  await store.update(doc.id, 'Alt');
+  await store.commit(doc.id);
+  await store.syncBackup();
+  await fs.writeFile(path.join(backup, 'notizen', 'Liste'), 'eine Datei, wo der Ordner hinmüsste');
+  await fs.mkdir(path.join(s.vault, 'Liste'));
+  await store.move('Eingang/Alt.md', 'Liste');
+  for (let i = 0; i < 12; i++) await store.syncBackup();
+  const other = await store.create();
+  await store.update(other.id, 'Geht wieder');
+  await store.commit(other.id);
+  await store.syncBackup();
+  assert.equal(await fs.readFile(path.join(backup, 'notizen', 'Eingang', 'Geht wieder.md'), 'utf8'), 'Geht wieder');
+  await store.shutdown();
+});
+
+test('deleting or moving a note follows the rename its last words caused', async () => {
+  const s = await sandbox();
+  const { store } = await boot(s);
+  const doc = await store.create();
+  await store.update(doc.id, 'Alt');
+  await store.commit(doc.id);
+  await store.update(doc.id, 'Neu');
+  await store.move('Eingang/Alt.md', '', 'Fest'); // still named after the old title on the renderer's side
+  assert.equal(await read(s, 'Fest.md'), 'Neu');
+
+  const other = await store.create();
+  await store.update(other.id, 'Vorher');
+  await store.commit(other.id);
+  await store.update(other.id, 'Nachher');
+  await store.trash('Eingang/Vorher.md');
+  assert.equal((await store.listTrash())[0].rel, 'Eingang/Nachher.md');
+  assert.deepEqual(await filesUnder(path.join(s.vault, 'Eingang')), []);
+  await store.shutdown();
+});
+
+test('changing only the case of a name keeps the history', async () => {
+  const s = await sandbox();
+  await fs.writeFile(path.join(s.vault, 'foo.md'), 'eins');
+  const { store } = await boot(s);
+  const doc = await store.openNote('foo.md');
+  await store.update(doc.id, 'zwei');
+  await store.commit(doc.id);
+  const before = (await store.history({ id: doc.id })).length;
+  assert.ok(before > 0);
+  await store.move('foo.md', '', 'Foo.md');
+  assert.equal((await store.history({ id: doc.id })).length, before);
+  await store.shutdown();
+});
+
+test('a note typed and erased again goes to the trash with its tab, a named one stays', async () => {
+  const s = await sandbox();
+  const { store, events } = await boot(s);
+  const doc = await store.create();
+  await store.update(doc.id, 'Kurz');
+  await store.commit(doc.id);
+  assert.equal(events.filter((e) => e.type === 'meta').at(-1).doc.path, 'Eingang/Kurz.md', 'the window learns the path of a new note');
+  await store.update(doc.id, '');
+  await store.close(doc.id);
+  await store.queue;
+  assert.deepEqual(await filesUnder(path.join(s.vault, 'Eingang')), []);
+  assert.equal((await store.listTrash()).length, 1);
+
+  const named = await store.openNote(await store.createNote('', 'Absicht.md'));
+  await store.close(named.id);
+  await store.queue;
+  assert.equal(await read(s, 'Absicht.md'), '');
   await store.shutdown();
 });
 

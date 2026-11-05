@@ -399,6 +399,7 @@ function tabMenu(tab, at) {
       { label: 'Im Dateimanager zeigen', run: () => api.reveal(tab.doc.path) },
     ] : []),
     { label: 'Verlauf anzeigen …', run: () => showHistory({ id: tab.id }, displayName(tab)) },
+    ...(tab.doc.path ? [{ separator: true }, { label: 'In den Papierkorb legen', danger: true, run: () => trashItem({ path: tab.doc.path }) }] : []),
   ]);
 }
 
@@ -708,7 +709,8 @@ async function openFiles() {
 }
 
 async function reopenClosed() {
-  const path = state.closed.pop();
+  let path;
+  do path = state.closed.pop(); while (path && !flat(state.tree.items).some((x) => x.path === path)); // deleted since: there is nothing to bring back
   if (path) await openNote(path);
 }
 
@@ -759,10 +761,11 @@ async function showTrash() {
       class: 'ms-button ms-button--destructive',
       onclick: async () => {
         const yes = await alertDialog({
-          title: 'Papierkorb endgültig leeren?', text: 'Die Dateien werden von der Platte gelöscht. Frühere Versionen bleiben im Verlauf.',
+          title: 'Papierkorb endgültig leeren?',
+          text: `Die Dateien und ihre früheren Versionen werden von der Platte gelöscht${state.settings.backup ? ', auch am zweiten Sicherungsort' : ''}.`,
           actions: [{ label: 'Abbrechen', primary: true }, { label: 'Endgültig löschen', danger: true, value: true }],
         });
-        if (yes) { await api.emptyTrash(); paint(); }
+        if (yes) { try { await api.emptyTrash(); paint(); } catch (e) { failed(e); } }
       },
     }, 'Papierkorb leeren')));
   };
@@ -900,7 +903,7 @@ function showSettings() {
           el('button', { class: 'ms-button', onclick: async () => { const d = await api.chooseFolder(); if (d) setBackup(d); } }, 'Wählen …'),
           el('button', { class: 'ms-button', onclick: () => setBackup(null) }, 'Entfernen')),
       })),
-    el('p', { class: 'ms-caption ms-secondary sheet-note' }, 'Der zweite Sicherungsort schützt vor einem Plattenausfall. Nimm dafür ein anderes Laufwerk oder ein NAS. Dort wird nie etwas gelöscht.'),
+    el('p', { class: 'ms-caption ms-secondary sheet-note' }, 'Der zweite Sicherungsort schützt vor einem Plattenausfall. Nimm dafür ein anderes Laufwerk oder ein NAS. Was du hier umbenennst, verschiebst oder löschst, ändert sich dort genauso. Was außerhalb der App verschwindet, bleibt dort erhalten.'),
     ...section('Darstellung',
       row({
         tile: 'theme', color: 'appearance', label: 'Erscheinungsbild',
