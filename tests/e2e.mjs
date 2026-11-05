@@ -56,6 +56,8 @@ const kill = async (app) => {
   await new Promise((r) => setTimeout(r, 300));
 };
 const tabNames = (page) => page.$$eval('#tab-list .tab-name', (n) => n.map((x) => x.textContent));
+/** Longer than the 150 ms to the journal and the 1.5 s to the notes folder, so anything on its way has landed. */
+const flushAndWait = () => new Promise((r) => setTimeout(r, 2000));
 /** Ctrl+T, then wait for the new tab itself: its title alone can also be the title of the tab before. */
 const newTab = async (page) => {
   const before = await page.$eval('.pane:not([hidden])', (n) => n.dataset.doc);
@@ -486,6 +488,115 @@ try {
   await page.keyboard.press('Control+Shift+t');
   await until(async () => (await tabNames(page)).length === count, 'tab back');
   step('side by side: drag, edit both, restart, swap, hide, replace, close');
+
+  // ---------- comparing: off by default, on and off by hand, lines aligned, both sides editable, Markdown as source and untouched
+  const tabOf = (name) => `.tab:has(.tab-name:text-is("${name}"))`;
+  const statusLine = () => page.textContent('#st-pos');
+  await fs.writeFile(path.join(vault, 'alt.txt'), 'gleich eins\nnur links\ngleich zwei\nanders links\n');
+  await fs.writeFile(path.join(vault, 'neu.txt'), 'gleich eins\ngleich zwei\nanders rechts\nnur rechts\n');
+  const starList = '* eins\n* zwei\n';
+  await fs.writeFile(path.join(vault, 'stern.md'), starList);
+  await fs.writeFile(path.join(vault, 'strich.md'), '- eins\n- drei\n');
+  const openFromTree = async (rel, name) => {
+    await page.click(`[data-path="${rel}"]`);
+    await page.waitForSelector(`${tabOf(name)}.is-active`);
+  };
+  await openFromTree('alt.txt', 'alt.txt');
+  await openFromTree('neu.txt', 'neu.txt');
+  await page.click(tabOf('alt.txt'), { button: 'right' });
+  await page.click('.float-menu >> text=Rechts daneben anzeigen');
+  await until(async () => (await visible()).length === 2, 'beside each other');
+  assert.equal(await page.getAttribute('#compare-toggle', 'aria-pressed'), 'false');
+  assert.equal(await page.$('.cm-mergeView'), null, 'side by side alone compares nothing');
+
+  await page.click('#compare-toggle');
+  await page.waitForSelector('.cm-mergeView');
+  assert.equal(await page.getAttribute('#compare-toggle', 'aria-pressed'), 'true');
+  const compareText = () => page.textContent('#compare-count');
+  await until(async () => /^\d+ Unterschiede$/.test(await compareText()), 'differences counted');
+  assert.ok(await page.$('.cm-merge-a .cm-changedLine') && await page.$('.cm-merge-b .cm-changedLine'), 'both sides mark their lines');
+  await page.waitForSelector('.cm-changedText');
+  const rowOf = (side, text) => page.$eval(`.cm-merge-${side}`, (ed, t) => [...ed.querySelectorAll('.cm-line')].find((l) => l.textContent === t).getBoundingClientRect().top, text);
+  assert.equal(await rowOf('a', 'gleich zwei'), await rowOf('b', 'gleich zwei'), 'equal lines stay level although one side has a line more above them');
+  const pill = await page.locator('#compare-bar').boundingBox();
+  const card = await page.locator('#editors').boundingBox();
+  assert.equal(pill.height, (await page.locator('#tabs').boundingBox()).height, 'as high as the pill with the tabs');
+  assert.equal(card.y - (pill.y + pill.height), 12, 'and as far from the card');
+  assert.ok(Math.abs(pill.x + pill.width / 2 - (card.x + card.width / 2)) <= 1, 'centered over the line between the sides');
+  await shot(page, '15-compare');
+  if (shots) {
+    await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
+    await shot(page, '15-compare-dark');
+    await page.evaluate(() => { delete document.documentElement.dataset.theme; });
+    const { width, height } = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds());
+    await setSize(720, 480);
+    await new Promise((r) => setTimeout(r, 300));
+    await shot(page, '15-compare-narrow');
+    await setSize(width, height);
+  }
+
+  await page.click('button[aria-label="Nächster Unterschied"]');
+  const lineAfterJump = await statusLine();
+  await page.click('button[aria-label="Nächster Unterschied"]');
+  assert.notEqual(await statusLine(), lineAfterJump, 'the arrow goes on to the next difference');
+  assert.match(lineAfterJump, /· 5 Zeilen$/);
+
+  // "Rechts daneben" put alt.txt on the right, so the left side, a, is neu.txt.
+  await page.click('.cm-merge-a .cm-line:has-text("gleich eins")');
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type('getippt');
+  await until(() => read('neu.txt').then((t) => t.endsWith('getippt')), 'a compared file is saved like any other');
+
+  await page.keyboard.press('Control+Alt+d');
+  await page.waitForSelector('.cm-mergeView', { state: 'detached' });
+  await until(async () => (await visible()).length === 2, 'still side by side');
+  assert.equal(await page.$('.cm-changedLine'), null);
+  assert.match(await page.textContent('#editors'), /getippt/);
+
+  // Markdown: the source on both sides while comparing, Live again afterwards, and neither file changes just from being looked at.
+  await page.click('.pane:not([hidden]) .cm-content >> nth=1');
+  await openFromTree('strich.md', 'strich');
+  await page.click('.pane:not([hidden]) .cm-content >> nth=0');
+  await openFromTree('stern.md', 'stern');
+  await until(async () => (await page.$$('.pane:not([hidden]) .prose')).length === 2, 'both notes live');
+  await page.click('#compare-toggle');
+  await page.waitForSelector('.cm-mergeView');
+  assert.equal(await page.textContent('#st-mode'), 'Quelltext');
+  assert.equal(await page.isDisabled('#st-mode'), true);
+  await until(() => page.$$eval('.cm-mergeView .cm-line', (lines) => lines.some((l) => l.textContent === '* eins')), 'the source exactly as it is on disk');
+  await page.click('#compare-toggle');
+  await page.waitForSelector('.cm-mergeView', { state: 'detached' });
+  await until(async () => (await page.$$('.pane:not([hidden]) .prose')).length === 2, 'live again');
+  assert.equal(await page.textContent('#st-mode'), 'Live');
+  await flushAndWait(page);
+  assert.equal(await read('stern.md'), starList, 'comparing writes nothing');
+
+  await page.click('#compare-toggle');
+  await page.waitForSelector('.cm-mergeView');
+  await page.click(`.split-side:not(.is-active) .round-btn`);
+  await page.waitForSelector('.cm-mergeView', { state: 'detached' });
+  assert.equal(await page.isVisible('#split-head'), false);
+  await page.click(tabOf('alt.txt'), { button: 'right' });
+  await page.click('.float-menu >> text=Rechts daneben anzeigen');
+  await until(async () => (await visible()).length === 2, 'beside each other again');
+  assert.equal(await page.getAttribute('#compare-toggle', 'aria-pressed'), 'false', 'a new pair starts without comparing');
+  await page.click('.split-side:not(.is-active) .round-btn');
+  await until(async () => (await visible()).length === 1, 'one tab again');
+  assert.equal(await page.isVisible('#compare-bar'), false, 'one tab has nothing to compare');
+  step('comparing: on and off, aligned, editable, Markdown as source and untouched');
+
+  // ---------- the status bar counts lines next to the words
+  await newTab(page);
+  await page.keyboard.type('eins zwei');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('drei');
+  await until(async () => (await statusLine()) === '3 Wörter · 2 Zeilen', 'words and lines of a live note');
+  await page.keyboard.press('Control+/');
+  await until(async () => (await statusLine()).endsWith('· 3 Zeilen'), 'in the source a paragraph break is a blank line');
+  await page.keyboard.press('Control+/');
+  await page.keyboard.press('Control+w');
+  await until(async () => !(await tabNames(page)).includes('eins zwei'), 'tab closed');
+  step('lines next to the words in the status bar');
 
   // ---------- trash and restore
   await page.click('[data-path="korpus0.md"]', { button: 'right' });

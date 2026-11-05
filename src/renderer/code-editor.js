@@ -2,11 +2,13 @@
 import { copyLineDown, deleteLine, moveLineDown, moveLineUp } from '@codemirror/commands';
 import { HighlightStyle, LanguageDescription, syntaxHighlighting } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
+import { goToNextChunk, goToPreviousChunk, MergeView } from '@codemirror/merge';
 import { gotoLine, openSearchPanel, search } from '@codemirror/search';
 import { Compartment, EditorSelection, EditorState, Prec } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { tags as t } from '@lezer/highlight';
 import { basicSetup } from 'codemirror';
+import { count } from './ui.js';
 
 const highlight = HighlightStyle.define([
   { tag: [t.keyword, t.modifier, t.operatorKeyword, t.controlKeyword], color: 'var(--ms-color-system-purple)' },
@@ -76,39 +78,70 @@ export const lineCommands = {
   dropEmpty: (lines) => lines.filter((l) => l.trim()),
 };
 
-export function createCodeEditor({ parent, text, name, wrap, onChange, onCursor }) {
+function codeSetup({ wrap, onChange, onCursor }) {
   const wrapping = new Compartment();
   const language = new Compartment();
-  const view = new EditorView({
-    parent,
-    state: EditorState.create({
-      doc: text,
-      extensions: [
-        Prec.high(keymap.of([
-          { key: 'Mod-d', run: copyLineDown, preventDefault: true }, // as in Notepad++
-          { key: 'Mod-l', run: deleteLine, preventDefault: true },
-          { key: 'Mod-Shift-ArrowUp', run: moveLineUp },
-          { key: 'Mod-Shift-ArrowDown', run: moveLineDown },
-          { key: 'Mod-h', run: openSearchPanel, preventDefault: true },
-          { key: 'Mod-g', run: gotoLine, preventDefault: true },
-        ])),
-        basicSetup,
-        search({ top: true }), // W-5: nothing important at the lower window edge
-        syntaxHighlighting(highlight),
-        EditorState.allowMultipleSelections.of(true),
-        german,
-        theme,
-        language.of([]),
-        wrapping.of(wrap ? EditorView.lineWrapping : []),
-        EditorView.updateListener.of((u) => {
-          if (u.docChanged) onChange();
-          if (u.docChanged || u.selectionSet) onCursor();
-        }),
-        EditorView.contentAttributes.of({ 'aria-label': 'Code-Editor' }),
-      ],
-    }),
-  });
+  return {
+    wrapping,
+    language,
+    extensions: [
+      Prec.high(keymap.of([
+        { key: 'Mod-d', run: copyLineDown, preventDefault: true }, // as in Notepad++
+        { key: 'Mod-l', run: deleteLine, preventDefault: true },
+        { key: 'Mod-Shift-ArrowUp', run: moveLineUp },
+        { key: 'Mod-Shift-ArrowDown', run: moveLineDown },
+        { key: 'Mod-h', run: openSearchPanel, preventDefault: true },
+        { key: 'Mod-g', run: gotoLine, preventDefault: true },
+      ])),
+      basicSetup,
+      search({ top: true }), // W-5: nothing important at the lower window edge
+      syntaxHighlighting(highlight),
+      EditorState.allowMultipleSelections.of(true),
+      german,
+      theme,
+      language.of([]),
+      wrapping.of(wrap ? EditorView.lineWrapping : []),
+      EditorView.updateListener.of((u) => {
+        if (u.docChanged) onChange();
+        if (u.docChanged || u.selectionSet) onCursor();
+      }),
+      EditorView.contentAttributes.of({ 'aria-label': 'Code-Editor' }),
+    ],
+  };
+}
 
+export function createCodeEditor({ parent, text, name, ...rest }) {
+  const setup = codeSetup(rest);
+  const view = new EditorView({ parent, state: EditorState.create({ doc: text, extensions: setup.extensions }) });
+  return editorApi(view, setup, name, () => view.destroy());
+}
+
+/**
+ * Two editors that show their differences, as in WinMerge: same lines side by side, one scrollbar, both stay editable.
+ * Either side's destroy() goes to onDestroy, because one side cannot go on without the other.
+ */
+export function createCompareEditors({ parent, wrap, sides: [left, right], onDiffChange, onDestroy }) {
+  const shared = [
+    Prec.highest(keymap.of([{ key: 'Alt-ArrowDown', run: goToNextChunk }, { key: 'Alt-ArrowUp', run: goToPreviousChunk }])), // as in WinMerge
+    EditorView.updateListener.of((u) => { if (u.docChanged) onDiffChange(); }),
+  ];
+  const [a, b] = [left, right].map((side) => codeSetup({ wrap, ...side }));
+  const merge = new MergeView({
+    parent,
+    a: { doc: left.text, extensions: [a.extensions, shared] },
+    b: { doc: right.text, extensions: [b.extensions, shared] },
+  });
+  merge.dom.classList.add('ms-scroll');
+  merge.a.dom.addEventListener('focusin', left.onFocus);
+  merge.b.dom.addEventListener('focusin', right.onFocus);
+  return {
+    differences: () => merge.chunks.length,
+    destroy: () => merge.destroy(),
+    editors: [editorApi(merge.a, a, left.name, onDestroy), editorApi(merge.b, b, right.name, onDestroy)],
+  };
+}
+
+function editorApi(view, { wrapping, language }, name, destroy) {
   const setLanguage = (fileName) => {
     const found = LanguageDescription.matchFilename(languages, fileName);
     if (!found) { view.dispatch({ effects: language.reconfigure([]) }); return; }
@@ -123,13 +156,13 @@ export function createCodeEditor({ parent, text, name, wrap, onChange, onCursor 
     setText(next) { view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next } }); },
     setRename: setLanguage,
     focus: () => view.focus(),
-    destroy: () => view.destroy(),
+    destroy,
     setWrap: (on) => view.dispatch({ effects: wrapping.reconfigure(on ? EditorView.lineWrapping : []) }),
     position() {
       const head = view.state.selection.main.head;
       const line = view.state.doc.lineAt(head);
-      const count = view.state.selection.ranges.length;
-      return `Z ${line.number}, S ${head - line.from + 1}${count > 1 ? ` · ${count} Cursor` : ''}`;
+      const cursors = view.state.selection.ranges.length;
+      return `Z ${line.number}, S ${head - line.from + 1}${cursors > 1 ? ` · ${cursors} Cursor` : ''} · ${count(view.state.doc.lines, 'Zeile', 'Zeilen')}`;
     },
     /** Applies fn to the selection, or to the whole text if nothing is selected. */
     transform(fn) {
@@ -148,6 +181,7 @@ export function createCodeEditor({ parent, text, name, wrap, onChange, onCursor 
       }));
     },
     find: () => { openSearchPanel(view); },
+    jumpToDifference: (step) => (step > 0 ? goToNextChunk : goToPreviousChunk)(view),
     goTo(line, column = 1) {
       const l = view.state.doc.line(Math.min(line, view.state.doc.lines));
       const pos = Math.min(l.from + column - 1, l.to);

@@ -1,10 +1,10 @@
 // The window: tabs, tree, commands. Text only ever reaches the disk through window.api.update (see store.js).
 import { JsonError, minifyJson, prettyJson } from '../shared/json.js';
 import { nameFromText } from '../shared/text.js';
-import { createCodeEditor, lineCommands } from './code-editor.js';
+import { createCodeEditor, createCompareEditors, lineCommands } from './code-editor.js';
 import { icon } from './icons.js';
 import { createMdEditor, isFaithful } from './md-editor.js';
-import { alertDialog, el, menu, pick, promptDialog, row, section, sheet } from './ui.js';
+import { alertDialog, count, el, menu, pick, promptDialog, row, section, sheet } from './ui.js';
 
 const api = window.api;
 const $ = (id) => document.getElementById(id);
@@ -13,10 +13,12 @@ const isMd = (doc) => /^\.(md|markdown)$/i.test(doc.ext);
 
 const state = {
   tabs: [], activeId: null, split: null /* [left id, right id], one of them the active tab */, tree: { items: [], online: true }, expanded: new Set(), filter: '', settings: null,
+  compare: false /* the two tabs side by side show their differences */, merge: null /* the editor pair doing that */,
   closed: [], sessionReady: false, seenBackupHint: false, focusPath: null, drag: null,
 };
 
 const activeTab = () => state.tabs.find((t) => t.id === state.activeId) ?? null;
+const comparing = (tab) => !!state.merge?.ids.includes(tab.id);
 
 // ---------------------------------------------------------------- messages
 
@@ -164,6 +166,8 @@ function ensureEditor(tab) {
         text: `„${displayName(tab)}“ enthält Inhalte, die der Live-Editor verändern würde. Sie ist deshalb in der Quelltextansicht geöffnet.`,
         action: { label: 'Trotzdem live bearbeiten', run: () => { tab.forceRich = true; switchMode(tab, 'rich'); } },
       });
+    } else {
+      tab.lastSent = tab.editor.getText(); // it writes `*` lists as `-`: only typing may reach the file, not looking at it (PLAN § 4)
     }
   } else {
     tab.editor = code();
@@ -221,6 +225,7 @@ function activate(id, focus = true) {
 
 /** Shows the active tab, or both tabs side by side. */
 function layoutPanes() {
+  syncCompare();
   const [left, right] = state.split ?? [];
   for (const t of state.tabs) {
     const shown = state.split ? state.split.includes(t.id) : t.id === state.activeId;
@@ -249,6 +254,63 @@ function leaveSplit(id) {
   return other;
 }
 
+/** Comparing shows the text itself, so a Markdown note is its source while it lasts. tab.mode stays as it is and takes over again afterwards. */
+function syncCompare() {
+  if (!state.split) state.compare = false;
+  const want = state.compare ? state.split : null;
+  if (state.merge && want?.every((id, i) => id === state.merge.ids[i])) return;
+  endCompare();
+  if (!want) return;
+  const tabs = want.map((id) => state.tabs.find((t) => t.id === id));
+  for (const t of tabs) {
+    send(t);
+    t.editor?.destroy();
+    t.pane?.remove();
+    t.editor = null;
+    t.pane = null;
+    t.cursor = null;
+  }
+  const host = el('div', { class: 'pane pane--compare' });
+  $('editors').append(host);
+  const pair = createCompareEditors({
+    parent: host, wrap: state.settings.wrap, onDiffChange: paintCompareBar, onDestroy: endCompare,
+    sides: tabs.map((t) => ({
+      text: t.doc.text, name: t.doc.name, onChange: () => changed(t),
+      onCursor: () => { if (t.id === state.activeId) paintPosition(); saveSessionSoon(); },
+      onFocus: () => { if (t.id !== state.activeId) activate(t.id, false); },
+    })),
+  });
+  tabs.forEach((t, i) => { t.editor = pair.editors[i]; });
+  state.merge = { ids: [...want], host, pair };
+}
+
+function endCompare() {
+  const merge = state.merge;
+  if (!merge) return;
+  state.merge = null;
+  for (const id of merge.ids) {
+    const tab = state.tabs.find((t) => t.id === id);
+    if (!tab) continue; // closed: its text went out before it did
+    send(tab);
+    tab.editor = null;
+    tab.cursor = null;
+  }
+  merge.pair.destroy();
+  merge.host.remove();
+}
+
+function setCompare(on) {
+  state.compare = on && !!state.split;
+  activate(state.activeId);
+}
+
+function jumpToDifference(step) {
+  const tab = activeTab();
+  if (!comparing(tab)) return;
+  tab.editor.jumpToDifference(step);
+  tab.editor.focus();
+}
+
 function paintSplitHead() {
   const head = $('split-head');
   head.hidden = !state.split;
@@ -261,6 +323,28 @@ function paintSplitHead() {
         onclick: () => activate(leaveSplit(id)),
       }));
   }));
+  paintCompareBar();
+}
+
+/** A pill of its own, built like the one with the tabs: on glass only fills (GL-2), and "on" looks like the active tab. */
+function paintCompareBar() {
+  const bar = $('compare-bar');
+  bar.hidden = !state.split;
+  if (!state.split) return;
+  const differences = state.merge?.pair.differences();
+  const jump = (step, name, label) => el('button', {
+    class: 'round-btn', 'aria-label': label, title: `${label} (Alt+${step > 0 ? '↓' : '↑'})`, html: icon(name), disabled: !differences, onclick: () => jumpToDifference(step),
+  });
+  bar.replaceChildren(
+    el('button', {
+      id: 'compare-toggle', class: `compare-toggle ms-callout${state.compare ? ' is-on' : ''}`, 'aria-pressed': String(state.compare), html: icon('compare'),
+      title: 'Unterschiede der beiden Tabs anzeigen (Strg+Alt+D)', onclick: () => setCompare(!state.compare),
+    }, 'Vergleichen'),
+    ...(state.merge ? [
+      el('span', { id: 'compare-count', class: 'ms-callout ms-secondary ms-num', role: 'status' }, differences ? count(differences, 'Unterschied', 'Unterschiede') : 'Keine Unterschiede'),
+      jump(-1, 'chevronUp', 'Voriger Unterschied'),
+      jump(1, 'chevronDown', 'Nächster Unterschied'),
+    ] : []));
 }
 
 function endTabDrag() {
@@ -415,9 +499,9 @@ function paintStatus() {
   paintPosition();
   if (!tab) return;
   const md = isMd(tab.doc);
-  $('st-mode').textContent = md ? (tab.mode === 'rich' ? 'Live' : 'Quelltext') : (tab.doc.ext.slice(1).toUpperCase() || 'Text');
-  $('st-mode').disabled = !md;
-  $('st-mode').title = md ? 'Zwischen Live-Ansicht und Quelltext wechseln (Strg+/)' : '';
+  $('st-mode').textContent = md ? (tab.mode === 'rich' && !comparing(tab) ? 'Live' : 'Quelltext') : (tab.doc.ext.slice(1).toUpperCase() || 'Text');
+  $('st-mode').disabled = !md || comparing(tab);
+  $('st-mode').title = !md ? '' : comparing(tab) ? 'Beim Vergleichen zeigt jede Notiz ihren Quelltext' : 'Zwischen Live-Ansicht und Quelltext wechseln (Strg+/)';
   const enc = { 'utf-8': 'UTF-8', 'utf-16le': 'UTF-16 LE', 'utf-16be': 'UTF-16 BE', 'windows-1252': 'Windows-1252' }[tab.doc.encoding];
   $('st-enc').textContent = tab.doc.bom ? `${enc} BOM` : enc;
   $('st-eol').textContent = { '\n': 'LF', '\r\n': 'CRLF', '\r': 'CR' }[tab.doc.eol];
@@ -682,7 +766,12 @@ function commands() {
     { label: 'Suchen und Ersetzen', hint: 'Strg+F', run: () => tab?.editor.find() },
     { label: 'JSON formatieren (Pretty Print)', hint: 'Strg+Alt+J', run: () => jsonTool(prettyJson) },
     { label: 'JSON komprimieren (Minify)', hint: 'Strg+Alt+Umschalt+J', run: () => jsonTool((s) => minifyJson(s)) },
-    ...(md ? [{ label: tab.mode === 'rich' ? 'Quelltext anzeigen' : 'Live-Ansicht anzeigen', hint: 'Strg+/', run: () => switchMode(tab, tab.mode === 'rich' ? 'code' : 'rich') }] : []),
+    ...(md && !comparing(tab) ? [{ label: tab.mode === 'rich' ? 'Quelltext anzeigen' : 'Live-Ansicht anzeigen', hint: 'Strg+/', run: () => switchMode(tab, tab.mode === 'rich' ? 'code' : 'rich') }] : []),
+    ...(state.split ? [{ label: state.compare ? 'Vergleichen beenden' : 'Tabs vergleichen', hint: 'Strg+Alt+D', run: () => setCompare(!state.compare) }] : []),
+    ...(state.merge ? [
+      { label: 'Nächster Unterschied', hint: 'Alt+↓', run: () => jumpToDifference(1) },
+      { label: 'Voriger Unterschied', hint: 'Alt+↑', run: () => jumpToDifference(-1) },
+    ] : []),
     { label: 'Zeilen sortieren (aufsteigend)', run: inCode((e) => e.changeLines(lineCommands.sortAsc)) },
     { label: 'Zeilen sortieren (absteigend)', run: inCode((e) => e.changeLines(lineCommands.sortDesc)) },
     { label: 'Doppelte Zeilen entfernen', run: inCode((e) => e.changeLines(lineCommands.unique)) },
@@ -945,7 +1034,7 @@ function saveSession() {
   }
   // Only comfort lives here. If this file is lost, the journals still bring back every tab.
   return api.saveSession({
-    order: state.tabs.map((t) => t.id), active: state.activeId, split: state.split, cursors, expanded: [...state.expanded],
+    order: state.tabs.map((t) => t.id), active: state.activeId, split: state.split, compare: state.compare, cursors, expanded: [...state.expanded],
     closed: state.closed.slice(-30), seenBackupHint: state.seenBackupHint,
   }).catch(() => {});
 }
@@ -981,6 +1070,7 @@ api.onEvent((e) => {
       tab.silent = true;
       tab.editor.setText(e.doc.text);
       tab.silent = false;
+      tab.lastSent = tab.editor.getText();
     }
     if (tab.doc.autoTitle) tab.title = nameFromText(tab.doc.text, tab.doc.ext);
     paintTabs();
@@ -1010,6 +1100,7 @@ window.addEventListener('keydown', (e) => {
   const tab = activeTab();
   const take = (fn) => { e.preventDefault(); e.stopPropagation(); fn(); };
   if (e.altKey && k === 'j') return take(() => jsonTool(e.shiftKey ? (s) => minifyJson(s) : prettyJson));
+  if (e.altKey && k === 'd' && state.split) return take(() => setCompare(!state.compare));
   if (e.altKey) return undefined;
   if (e.shiftKey) {
     if (k === 't') return take(reopenClosed);
@@ -1027,7 +1118,7 @@ window.addEventListener('keydown', (e) => {
   if (k === 'tab' || k === 'pagedown') return take(() => cycleTab(1));
   if (k === 'pageup') return take(() => cycleTab(-1));
   if ((k === 'f' || k === 'h') && tab) return take(() => tab.editor.find());
-  if (k === '/' && tab && isMd(tab.doc)) return take(() => { tab.forceRich = tab.mode === 'code'; switchMode(tab, tab.mode === 'rich' ? 'code' : 'rich'); });
+  if (k === '/' && tab && isMd(tab.doc) && !comparing(tab)) return take(() => { tab.forceRich = tab.mode === 'code'; switchMode(tab, tab.mode === 'rich' ? 'code' : 'rich'); });
   return undefined;
 }, true);
 
@@ -1105,7 +1196,7 @@ function wire() {
 
   $('st-mode').addEventListener('click', () => {
     const tab = activeTab();
-    if (tab && isMd(tab.doc)) { tab.forceRich = tab.mode === 'code'; switchMode(tab, tab.mode === 'rich' ? 'code' : 'rich'); }
+    if (tab && isMd(tab.doc) && !comparing(tab)) { tab.forceRich = tab.mode === 'code'; switchMode(tab, tab.mode === 'rich' ? 'code' : 'rich'); }
   });
   $('st-enc').addEventListener('click', (e) => {
     const d = activeTab()?.doc;
@@ -1164,7 +1255,7 @@ async function start() {
   }
   await refreshTree();
   const split = session?.split;
-  if (split?.length === 2 && split.includes(session.active) && split.every((id) => state.tabs.some((t) => t.id === id))) state.split = split;
+  if (split?.length === 2 && split.includes(session.active) && split.every((id) => state.tabs.some((t) => t.id === id))) { state.split = split; state.compare = !!session.compare; }
   if (!state.tabs.length) await newTab();
   else activate(state.tabs.some((t) => t.id === session?.active) ? session.active : state.tabs[0].id);
   state.sessionReady = true;

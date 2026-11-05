@@ -54,7 +54,9 @@ Press `Ctrl+T` and type, the same as in Notepad++. With the first character the 
 
 Closing a tab never asks anything and keeps the note, and `Ctrl+Shift+T` brings it back. To get rid of a note, right-click its tab or its entry in the tree and choose `In den Papierkorb legen`.
 
-To compare two notes, drag a tab onto the editor and drop it on the left or right half. Both stay editable, and the arrangement comes back after a restart. The `×` above a side hides it and leaves its tab open. It doesn't mark differences or scroll both sides together.
+To see two notes at once, drag a tab onto the editor and drop it on the left or right half. Both stay editable, and the arrangement comes back after a restart. The `×` above a side hides it and leaves its tab open.
+
+To compare them as in WinMerge, press **Vergleichen** in the pill above the two (`Ctrl+Alt+D`). Equal lines line up, both sides scroll together, changed lines and words are marked, and `Alt+↓` and `Alt+↑` jump between the differences. You can keep typing on both sides. Markdown shows its source while you compare and goes back to the live view afterwards. It stays off until you turn it on.
 
 <br>
 
@@ -109,6 +111,8 @@ Everything that isn't Markdown opens in the code editor, built on CodeMirror, wh
 |------|------|
 | `Ctrl+T`, `Ctrl+W`, `Ctrl+Shift+T` | New tab, close tab, bring it back |
 | `Ctrl+Tab` | Next tab |
+| `Ctrl+Alt+D` | Compare the two tabs side by side, or stop |
+| `Alt+↓` / `↑` | Next or previous difference while comparing |
 | `Ctrl+P` | Open a note by name |
 | `Ctrl+Shift+P` | All commands: sort lines, remove duplicates, trim, upper and lower case |
 | `Ctrl+F`, `Ctrl+H` | Find and replace, with regular expressions, in both editors |
@@ -232,7 +236,7 @@ npm run e2e   # the real app in a real window
 - Text typed in the first few milliseconds after `Ctrl+T`, before the new tab exists, lands in the previous tab.
 - The glass has blur, tint and rim, but not the refracting lens of MyPods and MyCAD, which comes from their Qt shader.
 - The interface is German only.
-- Macros, file compare, hex view, plugins and links between notes aren't implemented. They come if they turn out to be missed.
+- Macros, hex view, plugins and links between notes aren't implemented. They come if they turn out to be missed. Comparing shows differences but can't copy a change to the other side with one click yet.
 - Sync between computers isn't built in. Use Nextcloud, OneDrive or Git on the notes folder; conflicts end up as copies next to the note.
 - The history of a note only grows until the note is deleted for good. Notes are small, but nothing thins it out yet.
 - Pasted images stay in `.mynotes/assets` after the note that used them is deleted.

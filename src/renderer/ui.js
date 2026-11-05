@@ -169,3 +169,5 @@ export function row({ tile, color, label, end, hint }) {
     el('span', { class: 'ms-row__label' }, label, hint ? el('span', { class: 'row-hint ms-caption ms-secondary' }, hint) : null),
     el('span', { class: 'ms-row__end' }, end));
 }
+
+export const count = (n, one, many) => `${n} ${n === 1 ? one : many}`;

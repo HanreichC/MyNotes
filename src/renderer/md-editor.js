@@ -14,7 +14,7 @@ import { common, createLowlight } from 'lowlight';
 import { Marked } from 'marked';
 import { isJson } from '../shared/json.js';
 import { icon } from './icons.js';
-import { el, menu, promptDialog } from './ui.js';
+import { count, el, menu, promptDialog } from './ui.js';
 
 const lowlight = createLowlight(common);
 
@@ -396,8 +396,10 @@ export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmp
     destroy() { slash.destroy(); toolbar.destroy(); editor.destroy(); host.remove(); },
     setWrap() {},
     position() {
-      const words = editor.state.doc.textContent.trim().split(/\s+/).filter(Boolean).length;
-      return `${words} ${words === 1 ? 'Wort' : 'Wörter'}`;
+      // One line per block and hard break. textContent would glue paragraphs together and count their edges as one word.
+      const { doc } = editor.state;
+      const text = doc.textBetween(0, doc.content.size, '\n', (leaf) => (leaf.type.name === 'hardBreak' ? '\n' : ''));
+      return `${count(text.trim().split(/\s+/).filter(Boolean).length, 'Wort', 'Wörter')} · ${count(text.split('\n').length, 'Zeile', 'Zeilen')}`;
     },
     /** JSON tools work on the selection or the code block under the cursor. */
     transform(fn) {

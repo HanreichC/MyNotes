@@ -24,6 +24,8 @@ const paths = {
   sidebar: stroke('<rect x="3.5" y="5" width="17" height="14" rx="3"/><path d="M9.5 5v14"/>'),
   chevronRight: stroke('<path d="M9.5 6l6 6-6 6"/>', 2),
   chevronDown: stroke('<path d="M6 9.5l6 6 6-6"/>', 2),
+  chevronUp: stroke('<path d="M6 14.5l6-6 6 6"/>', 2),
+  compare: stroke('<path d="M4 8.5h15M15.5 5 19 8.5 15.5 12M20 15.5H5M8.5 12 5 15.5 8.5 19"/>'),
   file: stroke('<path d="M6.5 3.5h7L18.5 8.5v12h-12z"/><path d="M13.5 3.5v5h5"/>'),
   fileCode: stroke('<path d="M6.5 3.5h7L18.5 8.5v12h-12z"/><path d="M13.5 3.5v5h5M10.5 12.5 8.5 14.5l2 2M14 12.5l2 2-2 2"/>'),
   folder: stroke('<path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>'),

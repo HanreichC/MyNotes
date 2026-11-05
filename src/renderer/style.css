@@ -121,6 +121,22 @@ svg { display: block; }
 .split-side + .split-side { border-left: 1px solid var(--ms-color-separator-default); }
 .split-side.is-active { color: var(--ms-color-label-primary); }
 .split-side.is-active .tab-name { font-weight: 600; }
+/* The pill over a pair of tabs: as high as the one with the tabs, centered over the line between the two sides. */
+#compare-bar { flex: none; align-self: center; display: flex; align-items: center; gap: var(--ms-space-xxs); max-width: 100%; height: var(--ms-size-bar-height); margin-bottom: var(--ms-space-xs); padding-inline: var(--ms-space-xs); white-space: nowrap; }
+#compare-bar .round-btn:disabled { opacity: var(--ms-opacity-disabled); }
+.compare-toggle { display: flex; align-items: center; gap: var(--ms-space-xs); height: var(--ms-size-window-button); padding: 0 var(--ms-space-m) 0 var(--ms-space-s); border: 0; border-radius: var(--ms-radius-capsule); background: transparent; color: var(--ms-color-label-primary); transition: background-color var(--ms-motion-duration-hover) var(--ms-motion-easing-standard); }
+.compare-toggle > svg { flex: none; width: var(--ms-size-icon-m); height: var(--ms-size-icon-m); }
+.compare-toggle:hover { background: var(--ms-color-fill-tertiary); }
+.compare-toggle.is-on { background: var(--ms-color-fill-secondary); font-weight: 600; }
+.compare-toggle.is-on > svg { color: var(--ms-color-accent-text); }
+#compare-count { padding-inline: var(--ms-space-xs); }
+.pane--compare { top: var(--ms-size-window-button); }
+.pane--compare .cm-mergeView { flex: 1; min-height: 0; overflow-y: auto; mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.15), #000 14px); }
+.pane--compare .cm-scroller { mask-image: none; }
+/* Neither file is the wrong one, so both sides mark in one color, and the changed words are underlined as well (C-5). */
+.pane--compare .cm-mergeView .cm-editor .cm-changedLine { background: color-mix(in srgb, var(--ms-color-system-orange) 14%, transparent); }
+.pane--compare .cm-mergeView .cm-editor .cm-changedText { background: color-mix(in srgb, var(--ms-color-system-orange) 30%, transparent); box-shadow: inset 0 -2px 0 var(--ms-color-system-orange); }
+.pane--compare .cm-mergeView .cm-editor .cm-changedLineGutter { background: var(--ms-color-system-orange); }
 /* What a dragged tab can be dropped on: 8 inset in the card's radius 20 gives the tile's 12 (§ 7.2). */
 #split-drop { position: absolute; inset: 0; z-index: 1; display: grid; grid-template-columns: 1fr 1fr; gap: var(--ms-space-s); padding: var(--ms-space-s); background: color-mix(in srgb, var(--ms-color-background-top) 80%, transparent); }
 .split-zone { display: grid; place-items: center; border-radius: var(--ms-radius-tile); background: var(--ms-color-fill-tertiary); color: var(--ms-color-label-secondary); transition: background-color var(--ms-motion-duration-hover) var(--ms-motion-easing-standard); }

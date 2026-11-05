@@ -10,7 +10,7 @@ Stand 2026-11-04. Ein Notizeditor für CachyOS und Windows 11: Tabs wie Notepad+
 | Markdown | Echtes WYSIWYG mit TipTap/ProseMirror | Markdown wird beim Speichern neu erzeugt, siehe § 4 |
 | Code, JSON, Text | CodeMirror 6 | Zweiter Editor, hält den Text unverändert |
 | Neue Tabs | Sofort echte Notiz in `Eingang/` | Nur ein Konzept, nur ein Speicherweg |
-| Umfang | Notepad++-Kernfunktionen | Makros, Dateivergleich, Hex-Ansicht und Plugins erst später |
+| Umfang | Notepad++-Kernfunktionen | Makros, Hex-Ansicht und Plugins erst später |
 | Speicherformat | Normale Dateien im Notizordner | Notizen bleiben ohne die App lesbar und lassen sich mit Nextcloud, OneDrive oder Git abgleichen |
 | Oberflächensprache | Deutsch | Weitere Sprachen erst bei Bedarf |
 
@@ -160,6 +160,8 @@ TipTap erzeugt das Markdown beim Speichern neu. Aus `5 * 3` kann also `5 \* 3` w
 
 **Verlauf:** Versionen je Notiz ansehen und wiederherstellen. Wiederherstellen sichert vorher den aktuellen Stand.
 
+**Vergleichen:** Zwei Tabs nebeneinander lassen sich wie in WinMerge vergleichen, über eine eigene Glaspille über der Karte. Standard ist aus, das Ende der Nebeneinander-Ansicht schaltet es wieder aus. Gleiche Zeilen stehen auf einer Höhe, beide Seiten bleiben bearbeitbar. Verglichen wird der Text, Markdown zeigt dabei den Quelltext. Beide Seiten markieren in derselben Farbe, weil keine der beiden Dateien die falsche ist.
+
 ## 6. Oberfläche
 
 Folgt `MyStyle/STYLEGUIDE.md`. `tokens.css` und `components.css` kommen unverändert aus `MyStyle/platforms/web/`, dazu Inter aus `MyStyle/fonts/` und die Icons aus MyPods.
@@ -211,4 +213,4 @@ Renderer mit `sandbox` und `contextIsolation`, kein Node im Renderer, strenge CS
 
 ## 9. Später, wenn es fehlt
 
-Makros, Dateivergleich, Hex-Ansicht, geteilte Ansicht, Plugins, Links zwischen Notizen, Glas-Linse, englische Oberfläche, Ausdünnen des Verlaufs.
+Makros, Änderungen beim Vergleichen per Klick übernehmen, Hex-Ansicht, Plugins, Links zwischen Notizen, Glas-Linse, englische Oberfläche, Ausdünnen des Verlaufs.
