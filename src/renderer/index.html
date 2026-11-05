@@ -8,13 +8,13 @@
 </head>
 <body>
 <div id="window">
-  <header id="topbar" class="ms-glass ms-glass--capsule">
-    <div id="tabs" role="tablist" aria-label="Offene Notizen">
+  <!-- #titlebar stays before #sidebar: Chromium takes a scrolled #tab-list's no-drag area unclipped, so it also covers the sidebar's head unless that comes later. -->
+  <header id="titlebar">
+    <div id="tabs" class="ms-glass ms-glass--capsule" role="tablist" aria-label="Offene Notizen">
       <div id="tab-list" class="ms-scroll"></div>
-      <button id="tab-new" class="icon-btn" aria-label="Neuer Tab" title="Neuer Tab (Strg+T). Rechtsklick: mehr öffnen"></button>
+      <button id="tab-new" class="round-btn" aria-label="Neuer Tab" title="Neuer Tab (Strg+T). Rechtsklick: mehr öffnen"></button>
     </div>
-    <span id="app-name" class="ms-title2">MyNotes</span>
-    <div id="window-buttons">
+    <div id="window-buttons" class="ms-glass ms-glass--capsule">
       <button id="win-min" class="round-btn" aria-label="Minimieren" title="Minimieren"></button>
       <button id="win-max" class="round-btn" aria-label="Maximieren" title="Maximieren"></button>
       <button id="win-close" class="round-btn ms-button--close" aria-label="Schließen" title="Schließen"></button>
@@ -22,6 +22,10 @@
   </header>
 
   <aside id="sidebar" class="ms-glass" aria-label="Notizen">
+    <div id="brand">
+      <span class="ms-title2">MyNotes</span>
+      <button id="side-toggle" class="round-btn round-btn--s"></button>
+    </div>
     <div class="side-tools">
       <input id="filter" class="ms-field" type="search" placeholder="Filtern" aria-label="Notizen filtern">
       <button id="new-folder" class="icon-btn" aria-label="Neuer Ordner" title="Neuer Ordner"></button>
@@ -32,6 +36,7 @@
       <button id="btn-search" class="side-link"></button>
       <button id="btn-trash" class="side-link"></button>
       <button id="btn-settings" class="side-link"></button>
+      <span id="version" class="ms-section ms-num"></span>
     </div>
     <div id="side-resize" role="separator" aria-orientation="vertical" aria-label="Breite der Seitenleiste" tabindex="0"></div>
   </aside>

@@ -64,14 +64,35 @@ const newTab = async (page) => {
 
 let { app, page } = await launch();
 try {
-  // ---------- title bar: across the whole window without a grip; #app-name must follow #tabs in the DOM, or a scrolled tab list takes its drag area away
-  const bar = await page.evaluate(() => {
-    const r = document.querySelector('#topbar').getBoundingClientRect();
-    const [tabs, name] = ['#tabs', '#app-name'].map((s) => document.querySelector(s));
-    return { left: r.left, right: innerWidth - r.right, grip: !!document.querySelector('#win-grip'), nameAfterTabs: !!(tabs.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING) };
+  // ---------- the window of MyStyle § 7.3: sidebar from top to bottom, tabs level with the editor, window buttons alone in their capsule.
+  // The name must come after #tabs in the DOM in both places, or a scrolled tab list takes its drag area away.
+  const anatomy = () => page.evaluate(() => {
+    const box = (s) => document.querySelector(s).getBoundingClientRect();
+    const [tabs, editor, buttons, brand, side] = ['#tabs', '#main', '#window-buttons', '#brand', '#sidebar'].map(box);
+    const drag = (s) => getComputedStyle(document.querySelector(s)).getPropertyValue('-webkit-app-region');
+    return {
+      row: [tabs.top, tabs.height, buttons.top, buttons.height, innerWidth - buttons.right], editorBelowTabs: editor.top - tabs.bottom,
+      tabsLevelWithEditor: tabs.left === editor.left, brandAt: [brand.left, brand.top], side: [side.top, innerHeight - side.bottom],
+      nameAfterTabs: !!(document.querySelector('#tabs').compareDocumentPosition(document.querySelector('#brand')) & Node.DOCUMENT_POSITION_FOLLOWING),
+      drags: [drag('#titlebar'), drag('#brand'), drag('#side-toggle'), drag('#tab-list'), drag('#side-resize')],
+    };
   });
-  assert.deepEqual(bar, { left: bar.right, right: bar.left, grip: false, nameAfterTabs: true });
-  step('title bar across the window');
+  const frame = { row: [12, 44, 12, 44, 12], editorBelowTabs: 12, nameAfterTabs: true, drags: ['drag', 'drag', 'no-drag', 'no-drag', 'no-drag'] };
+  assert.deepEqual(await anatomy(), { ...frame, tabsLevelWithEditor: true, brandAt: [12, 12], side: [12, 12] });
+  assert.equal(await page.$('#topbar'), null);
+  assert.match(await page.textContent('#version'), /^MyNotes \d+\.\d+\.\d+$/);
+  await page.click('#side-toggle');
+  await page.waitForSelector('#sidebar', { state: 'hidden' });
+  const away = await anatomy();
+  assert.deepEqual(away, { ...frame, tabsLevelWithEditor: false, brandAt: [12, 12], side: away.side });
+  assert.ok(await page.$('#titlebar > #brand.ms-glass--capsule'), 'name and button form a capsule');
+  assert.equal(await page.evaluate(() => document.querySelector('#tabs').getBoundingClientRect().left - document.querySelector('#brand').getBoundingClientRect().right), 12, 'the tabs follow the capsule');
+  assert.equal(await page.getAttribute('#side-toggle', 'aria-label'), 'Seitenleiste einblenden');
+  await shot(page, '0-sidebar-away');
+  await page.click('#side-toggle');
+  await page.waitForSelector('#sidebar', { state: 'visible' });
+  assert.ok(await page.$('#sidebar > #brand:not(.ms-glass)'), 'name back in the sidebar, without glass on glass');
+  step('window anatomy, sidebar away and back');
 
   // ---------- the plus button: a click opens a tab at once, a right click offers the rest; the three dots are gone
   assert.equal(await page.$('#win-menu'), null);
@@ -362,6 +383,19 @@ try {
   await page.keyboard.press('Control+w');
   await until(async () => (await tabNames(page)).length === count, 'tab closed');
   step('the wheel reaches the first tab and the list stays there');
+
+  // ---------- a narrower window keeps the active tab in view
+  await page.click('.tab:last-child');
+  await until(() => page.$eval('.tab:last-child', (n) => n.classList.contains('is-active')), 'last tab active');
+  const setSize = (w, h) => app.evaluate(({ BrowserWindow }, s) => BrowserWindow.getAllWindows()[0].setSize(...s), [w, h]);
+  const { width: wideW, height: wideH } = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds());
+  await setSize(720, 480);
+  await until(() => page.evaluate(() => {
+    const [tab, list] = ['.tab.is-active', '#tab-list'].map((s) => document.querySelector(s).getBoundingClientRect());
+    return list.right < 700 && tab.left >= list.left - 1 && tab.right <= list.right + 1; // tab widths are fractional, scrolling is not
+  }), 'active tab in view after shrinking', 2000);
+  await setSize(wideW, wideH);
+  step('a narrower window keeps the active tab in view');
 
   // ---------- trash and restore
   await page.click('[data-path="korpus0.md"]', { button: 'right' });

@@ -778,6 +778,23 @@ function applySettings() {
   html.style.setProperty('--editor-size', `${s.fontSize}px`);
   html.style.setProperty('--side-w', `${s.sidebarWidth}px`);
   for (const t of state.tabs) t.editor?.setWrap(s.wrap);
+  placeBrand(s.sidebarHidden);
+}
+
+/** W-1: the app's name and the sidebar button live in the sidebar, or in a capsule of their own in the title row while it is away. */
+function placeBrand(hidden) {
+  const brand = $('brand');
+  const button = $('side-toggle');
+  const focused = document.activeElement === button; // moving a node takes the focus away from it
+  document.documentElement.toggleAttribute('data-side-hidden', hidden);
+  $('sidebar').hidden = hidden;
+  brand.classList.toggle('ms-glass', hidden);
+  brand.classList.toggle('ms-glass--capsule', hidden);
+  if (hidden) $('tabs').after(brand); else $('sidebar').prepend(brand);
+  const label = hidden ? 'Seitenleiste einblenden' : 'Seitenleiste ausblenden';
+  button.setAttribute('aria-label', label);
+  button.title = label;
+  if (focused) button.focus();
 }
 
 function showSettings() {
@@ -966,6 +983,8 @@ function wire() {
   iconize('win-min', 'minus');
   iconize('win-max', 'maximize');
   iconize('win-close', 'close');
+  iconize('side-toggle', 'sidebar');
+  $('side-toggle').addEventListener('click', () => setSetting('sidebarHidden', !state.settings.sidebarHidden));
   const sideLink = (id, name, label, run) => { const b = $(id); b.innerHTML = icon(name); b.append(label); b.addEventListener('click', run); };
   sideLink('btn-search', 'search', 'In allen Notizen suchen', showSearch);
   sideLink('btn-trash', 'trash', 'Papierkorb', showTrash);
@@ -983,6 +1002,8 @@ function wire() {
     e.preventDefault();
     e.currentTarget.scrollLeft += e.deltaY;
   }, { passive: false });
+  // A narrower list (window, sidebar width) must not push the active tab out of view. Scrolling with the wheel doesn't change the width, so it stays free.
+  new ResizeObserver(() => $('tab-list').querySelector('.is-active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })).observe($('tab-list'));
   $('new-folder').addEventListener('click', () => createFolderIn(''));
   $('filter').addEventListener('input', (e) => { state.filter = e.target.value; paintTree(); });
   $('win-min').addEventListener('click', () => api.win('minimize'));
@@ -1051,6 +1072,7 @@ async function start() {
   wire();
   state.settings = await api.settings();
   applySettings();
+  $('version').textContent = `MyNotes ${await api.version()}`;
   const session = await api.session();
   state.expanded = new Set(session?.expanded ?? ['Eingang']);
   state.closed = session?.closed ?? [];

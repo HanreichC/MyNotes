@@ -149,7 +149,7 @@ body { margin: 0; }
 }
 .ms-icon-tile > svg { width: 16px; height: 16px; }
 .ms-icon { width: 16px; height: 16px; flex: none; }
-.ms-info { color: var(--ms-color-accent-text); width: 16px; height: 16px; }
+.ms-info { color: var(--ms-color-label-secondary); width: 16px; height: 16px; }
 
 .ms-chip {
   display: inline-flex; align-items: center; height: var(--ms-size-chip); padding: 0 10px;

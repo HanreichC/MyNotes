@@ -21,6 +21,7 @@ const paths = {
   trash: stroke('<path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5"/>'),
   maximize: stroke('<rect x="6" y="6" width="12" height="12" rx="2.5"/>'),
   restore: stroke('<rect x="5" y="9" width="10" height="10" rx="2.5"/><path d="M9 5.5h7a3 3 0 0 1 3 3v7"/>'),
+  sidebar: stroke('<rect x="3.5" y="5" width="17" height="14" rx="3"/><path d="M9.5 5v14"/>'),
   chevronRight: stroke('<path d="M9.5 6l6 6-6 6"/>', 2),
   chevronDown: stroke('<path d="M6 9.5l6 6 6-6"/>', 2),
   file: stroke('<path d="M6.5 3.5h7L18.5 8.5v12h-12z"/><path d="M13.5 3.5v5h5"/>'),

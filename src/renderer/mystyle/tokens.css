@@ -24,7 +24,7 @@
   --ms-space-xxl: 32px;
   --ms-space-xxxl: 48px;
   --ms-size-window-inset: 12px;
-  --ms-size-bar-height: 48px;
+  --ms-size-bar-height: 44px;
   --ms-size-window-button: 36px;
   --ms-size-sidebar-width: 232px;
   --ms-size-content-max-width: 560px;
@@ -212,6 +212,7 @@
   --ms-glass-tint-text-a: 0.72;
   --ms-glass-tint-text-b: 0.16;
   --ms-glass-tint-text-c: 0.16;
+  --ms-glass-note-tint: 0.3;
 }
 
 /* dark: follows the system unless data-theme forces a mode */
@@ -284,6 +285,7 @@
     --ms-glass-tint-text-a: 0.66;
     --ms-glass-tint-text-b: 0.18;
     --ms-glass-tint-text-c: 0.18;
+    --ms-glass-note-tint: 0.15;
   }
 }
 :root[data-theme="dark"] {
@@ -354,6 +356,7 @@
   --ms-glass-tint-text-a: 0.66;
   --ms-glass-tint-text-b: 0.18;
   --ms-glass-tint-text-c: 0.18;
+  --ms-glass-note-tint: 0.15;
 }
 
 /* Increase Contrast */

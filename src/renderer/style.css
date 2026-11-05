@@ -21,13 +21,21 @@ svg { display: block; }
   box-shadow: inset 0 0 0 1px var(--ms-color-glass-popup-border);
 }
 :root[data-maximized] #window { border-radius: 0; box-shadow: none; }
+:root[data-side-hidden] #window { grid-template-columns: minmax(0, 1fr); }
 /* GM-4: glass steps back when the window loses focus */
 :root[data-unfocused] .ms-glass::before { opacity: 0.5; }
 :root[data-unfocused] .ms-glass { --_tint: calc(var(--ms-glass-tint-a) + 0.1 + var(--ms-glass-tint-b) * min(var(--ms-glass-level), 0.5) + var(--ms-glass-tint-c) * max(var(--ms-glass-level) - 0.5, 0)); }
 
 /* ---------------------------------------------------------------- sidebar */
 /* The wiki tree is the main tool here, so it goes deeper than 2 levels and can be widened (exception to § 9.1). */
-#sidebar { display: flex; flex-direction: column; min-height: 0; padding: var(--ms-space-l) var(--ms-space-s) 14px; }
+#sidebar { grid-column: 1; grid-row: 1 / -1; display: flex; flex-direction: column; min-height: 0; padding: var(--ms-space-l) var(--ms-space-s) 14px; }
+/* The head moves the window, up to the sidebar's edge. The tree does not: it is the drop target for the top level and has its own menu, and its
+   no-drag area would reach over the head while it scrolls (see index.html). So the sidebar as a whole is not a drag area, only this. */
+#brand { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--ms-space-s); margin: calc(-1 * var(--ms-space-l)) calc(-1 * var(--ms-space-s)) 0; padding: var(--ms-space-l) var(--ms-space-s) var(--ms-space-m) var(--ms-space-l); user-select: none; -webkit-app-region: drag; }
+/* W-1: with the sidebar away, name and button become a capsule at the start of the title row. It comes after #tabs in the DOM for the same reason. */
+#titlebar > #brand { order: -1; margin: 0; padding: 0 var(--ms-space-xs) 0 var(--ms-space-l); }
+#titlebar > #brand .round-btn--s { width: var(--ms-size-window-button); height: var(--ms-size-window-button); padding: 9px; }
+#version { margin: var(--ms-space-s) 0 0 var(--ms-space-s); }
 .side-tools { display: flex; align-items: center; gap: var(--ms-space-xxs); padding: 0 var(--ms-space-xxs) var(--ms-space-s); }
 .side-tools .ms-field { flex: 1; min-width: 0; }
 #tree { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 1px; padding: 2px; }
@@ -57,18 +65,17 @@ svg { display: block; }
 }
 .side-link:hover { background: var(--ms-color-fill-tertiary); }
 .side-link > svg { flex: none; width: var(--ms-size-icon-m); height: var(--ms-size-icon-m); color: var(--ms-color-label-secondary); }
-#side-resize { position: absolute; top: var(--ms-radius-panel); bottom: var(--ms-radius-panel); right: -6px; width: 12px; cursor: col-resize; touch-action: none; }
+#side-resize { position: absolute; top: var(--ms-radius-panel); bottom: var(--ms-radius-panel); right: -6px; width: 12px; cursor: col-resize; touch-action: none; -webkit-app-region: no-drag; }
 #side-resize:focus-visible { outline: none; background: linear-gradient(to right, transparent 5px, var(--ms-color-focus-ring) 5px, var(--ms-color-focus-ring) 7px, transparent 7px); }
 
-/* ---------------------------------------------------------------- top bar */
-#main { min-width: 0; display: flex; flex-direction: column; gap: var(--ms-space-s); }
-/* The whole bar moves the window, everything clickable opts out. */
-#topbar { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--ms-size-window-inset); -webkit-app-region: drag; }
-/* Its column keeps a free stretch however many tabs are open, and the tabs start level with the editor. It comes after #tabs in the
-   DOM on purpose: Chromium takes a scrolled #tab-list's no-drag area unclipped, so it covers this column too unless a later element claims it back. */
-#app-name { order: -1; flex: none; width: var(--side-w); padding-left: var(--ms-space-l); user-select: none; -webkit-app-region: drag; }
-#tabs { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--ms-space-xxs); height: 100%; }
-#tab-list { display: flex; align-items: center; gap: var(--ms-space-xxs); min-width: 0; height: 100%; overflow-x: auto; scrollbar-width: none; -webkit-app-region: no-drag; }
+/* ---------------------------------------------------------------- title row (§ 7.3): no bar of its own, level with the editor below */
+#main { grid-column: -2 / -1; min-width: 0; display: flex; flex-direction: column; gap: var(--ms-space-s); }
+/* The free stretch moves the window, everything clickable opts out. */
+#titlebar { grid-column: -2 / -1; min-width: 0; display: flex; align-items: stretch; gap: var(--ms-size-window-inset); -webkit-app-region: drag; }
+#tabs, #window-buttons { display: flex; align-items: center; gap: var(--ms-space-xxs); padding-inline: var(--ms-space-xs); }
+#tabs { flex: 0 1 auto; min-width: 0; }
+#tab-list { display: flex; align-items: center; gap: var(--ms-space-xxs); min-width: 0; height: 100%; overflow-x: auto; scrollbar-width: none; border-radius: var(--ms-radius-capsule); -webkit-app-region: no-drag; }
+#window-buttons { flex: none; gap: 0; margin-left: auto; }
 .tab {
   flex: none; display: flex; align-items: center; gap: var(--ms-space-xxs); max-width: 220px; height: var(--ms-size-window-button); padding: 0 var(--ms-space-xs) 0 var(--ms-space-m);
   border-radius: var(--ms-radius-capsule);
@@ -86,7 +93,6 @@ svg { display: block; }
 .icon-btn { flex: none; display: grid; place-items: center; width: var(--ms-size-window-button); height: var(--ms-size-window-button); padding: 9px; border: 0; border-radius: var(--ms-radius-capsule); background: transparent; -webkit-app-region: no-drag; }
 .icon-btn:hover { background: var(--ms-color-fill-tertiary); }
 .side-tools .icon-btn { width: var(--ms-size-control-desktop); height: var(--ms-size-control-desktop); padding: 7px; }
-#window-buttons { flex: none; display: flex; align-items: center; padding: 0 6px; }
 .round-btn { flex: none; display: grid; place-items: center; width: var(--ms-size-window-button); height: var(--ms-size-window-button); padding: 9px; border: 0; border-radius: var(--ms-radius-capsule); background: transparent; -webkit-app-region: no-drag;
   transition: background-color var(--ms-motion-duration-hover) var(--ms-motion-easing-standard); }
 .round-btn:hover { background: var(--ms-color-fill-tertiary); }
@@ -108,6 +114,8 @@ svg { display: block; }
 .pane { position: absolute; inset: 0; display: flex; flex-direction: column; }
 .pane .cm-editor { flex: 1; min-height: 0; }
 .prose-host { flex: 1; min-height: 0; }
+/* W-3: text fades out under the card's top edge instead of being cut off */
+.prose-host, .pane .cm-scroller { mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.15), #000 14px); }
 .prose { max-width: 70ch; min-height: 100%; margin: 0 auto; padding: var(--ms-space-xxl) var(--ms-space-xl) var(--ms-space-xxxl); outline: none; font-size: var(--editor-size); line-height: 1.6; overflow-wrap: anywhere; }
 .prose > :first-child { margin-top: 0; }
 .prose p { margin: 0 0 0.6em; }

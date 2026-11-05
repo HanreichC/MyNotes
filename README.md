@@ -60,7 +60,7 @@ Closing a tab never asks anything, and `Ctrl+Shift+T` brings it back.
 
 The sidebar shows your notes folder as a tree, with folders and subfolders as deep as you like. Drag notes and folders to move or sort them, like the page tree in Confluence. Your order is kept in `.mynotes/order.json`, so it travels with the folder.
 
-Moving and renaming never overwrite anything: a taken name gets a number. Open tabs and the history follow the file. The filter narrows the tree as you type, `Ctrl+P` opens a note by name and `Ctrl+Shift+F` searches all notes, with regular expressions if you want them.
+Moving and renaming never overwrite anything: a taken name gets a number. Open tabs and the history follow the file. The filter narrows the tree as you type, `Ctrl+P` opens a note by name and `Ctrl+Shift+F` searches all notes, with regular expressions if you want them. The button next to the name hides the sidebar when you want the whole window for writing.
 
 You choose the notes folder in the settings. Switching copies everything to the new folder and checks every file against a checksum, and the old folder stays as it is.
 
