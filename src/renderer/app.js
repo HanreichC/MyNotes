@@ -1,5 +1,6 @@
 // The window: tabs, tree, commands. Text only ever reaches the disk through window.api.update (see store.js).
 import { conversionsFor } from '../shared/convert.js';
+import { keys, language, locale, t } from '../shared/i18n.js';
 import { isJson, JsonError, minifyJson, prettyJson } from '../shared/json.js';
 import { nameFromText } from '../shared/text.js';
 import { createCodeEditor, createCompareEditors, lineCommands } from './code-editor.js';
@@ -29,7 +30,7 @@ function banner({ kind = 'info', text, action, sticky = false, key }) {
   const box = el('div', { class: `inline-msg inline-msg--${kind}`, 'data-key': key ?? '', html: icon({ warning: 'warning', error: 'error', ok: 'check' }[kind] ?? 'info') });
   box.append(el('span', { class: 'ms-callout inline-msg__text' }, text));
   if (action) box.append(el('button', { class: 'ms-button', onclick: () => { box.remove(); paintBanner(); action.run(); } }, action.label));
-  if (!sticky) box.append(el('button', { class: 'round-btn round-btn--s', 'aria-label': 'Meldung schließen', title: 'Meldung schließen', html: icon('close'), onclick: () => { box.remove(); paintBanner(); } }));
+  if (!sticky) box.append(el('button', { class: 'round-btn round-btn--s', 'aria-label': t('Meldung schließen'), title: t('Meldung schließen'), html: icon('close'), onclick: () => { box.remove(); paintBanner(); } }));
   $('banner').append(box);
   paintBanner();
   return box;
@@ -80,12 +81,12 @@ function changed(tab) {
 }
 
 const SAVE_TEXT = {
-  pending: ['info', 'Sichert …'],
-  durable: ['check', 'Gesichert'],
-  committed: ['check', 'Gespeichert'],
-  recovered: ['check', 'Gespeichert'],
-  'vault-error': ['warning', 'Nicht im Notizordner, aber im Journal gesichert'],
-  'journal-error': ['error', 'Sichern fehlgeschlagen'],
+  pending: ['info', t('Sichert …')],
+  durable: ['check', t('Gesichert')],
+  committed: ['check', t('Gespeichert')],
+  recovered: ['check', t('Gespeichert')],
+  'vault-error': ['warning', t('Nicht im Notizordner, aber im Journal gesichert')],
+  'journal-error': ['error', t('Sichern fehlgeschlagen')],
 };
 
 function setSaveState(tab, saveState, detail) {
@@ -96,7 +97,7 @@ function setSaveState(tab, saveState, detail) {
   tab.saveState = saveState;
   tab.saveDetail = detail;
   if (saveState === 'journal-error') {
-    banner({ kind: 'error', key: 'journal', sticky: true, text: `Der Text konnte nicht auf die Platte geschrieben werden (${detail}). Lass das Fenster offen, die App versucht es weiter.` });
+    banner({ kind: 'error', key: 'journal', sticky: true, text: t('Der Text konnte nicht auf die Platte geschrieben werden ({detail}). Lass das Fenster offen, die App versucht es weiter.', { detail }) });
   } else if (saveState === 'durable' || saveState === 'committed') {
     clearBanner('journal');
   }
@@ -111,7 +112,7 @@ function paintSave() {
   node.innerHTML = icon(ic);
   node.append(tab?.saveDetail && tab.saveState === 'vault-error' ? `${text}: ${tab.saveDetail}` : text);
   node.dataset.state = tab?.saveState ?? 'durable';
-  if (state.backupError) node.append(` · Sicherungsort nicht erreichbar`);
+  if (state.backupError) node.append(` · ${t('Sicherungsort nicht erreichbar')}`);
 }
 
 // ---------------------------------------------------------------- tabs
@@ -165,8 +166,8 @@ function ensureEditor(tab) {
       tab.editor = code();
       banner({
         kind: 'info', key: `src-${tab.id}`,
-        text: `„${displayName(tab)}“ enthält Inhalte, die der Live-Editor verändern würde. Sie ist deshalb in der Quelltextansicht geöffnet.`,
-        action: { label: 'Trotzdem live bearbeiten', run: () => { tab.forceRich = true; switchMode(tab, 'rich'); } },
+        text: t('„{name}“ enthält Inhalte, die der Live-Editor verändern würde. Sie ist deshalb in der Quelltextansicht geöffnet.', { name: displayName(tab) }),
+        action: { label: t('Trotzdem live bearbeiten'), run: () => { tab.forceRich = true; switchMode(tab, 'rich'); } },
       });
     } else {
       tab.lastSent = tab.editor.getText(); // it writes `*` lists as `-`: only typing may reach the file, not looking at it (PLAN § 4)
@@ -336,7 +337,7 @@ function paintSplitHead() {
     return el('div', { class: `split-side${id === state.activeId ? ' is-active' : ''}` },
       el('span', { class: 'tab-name ms-callout' }, name),
       el('button', {
-        class: 'round-btn round-btn--s', 'aria-label': `${name} ausblenden`, title: 'Ausblenden, der Tab bleibt offen', html: icon('close'),
+        class: 'round-btn round-btn--s', 'aria-label': t('{name} ausblenden', { name }), title: t('Ausblenden, der Tab bleibt offen'), html: icon('close'),
         onclick: () => activate(leaveSplit(id)),
       }));
   }));
@@ -355,12 +356,12 @@ function paintCompareBar() {
   bar.replaceChildren(
     el('button', {
       id: 'compare-toggle', class: `compare-toggle ms-callout${state.compare ? ' is-on' : ''}`, 'aria-pressed': String(state.compare), html: icon('compare'),
-      title: 'Unterschiede der beiden Tabs anzeigen (Strg+Alt+D)', onclick: () => setCompare(!state.compare),
-    }, 'Vergleichen'),
+      title: t('Unterschiede der beiden Tabs anzeigen (Strg+Alt+D)'), onclick: () => setCompare(!state.compare),
+    }, t('Vergleichen')),
     ...(state.merge ? [
-      el('span', { id: 'compare-count', class: 'ms-callout ms-secondary ms-num', role: 'status' }, differences ? count(differences, 'Unterschied', 'Unterschiede') : 'Keine Unterschiede'),
-      jump(-1, 'chevronUp', 'Voriger Unterschied'),
-      jump(1, 'chevronDown', 'Nächster Unterschied'),
+      el('span', { id: 'compare-count', class: 'ms-callout ms-secondary ms-num', role: 'status' }, differences ? count(differences, t('Unterschied'), t('Unterschiede')) : t('Keine Unterschiede')),
+      jump(-1, 'chevronUp', t('Voriger Unterschied')),
+      jump(1, 'chevronDown', t('Nächster Unterschied')),
     ] : []));
 }
 
@@ -450,7 +451,7 @@ function paintTabs() {
     const warn = tab.saveState === 'vault-error' || tab.saveState === 'journal-error';
     const node = el('div', {
       class: `tab${active ? ' is-active' : ''}${!active && state.split?.includes(tab.id) ? ' is-paired' : ''}`, role: 'tab', 'aria-selected': String(active), tabIndex: active ? 0 : -1,
-      draggable: true, title: tab.doc.external ?? tab.doc.path ?? 'Noch nicht benannt',
+      draggable: true, title: tab.doc.external ?? tab.doc.path ?? t('Noch nicht benannt'),
       onclick: () => activate(tab.id),
       onauxclick: (e) => { if (e.button === 1) closeTab(tab.id); },
       onkeydown: (e) => {
@@ -473,10 +474,10 @@ function paintTabs() {
         saveSessionSoon();
       },
     },
-    warn ? el('span', { class: 'tab-warn', html: icon('warning'), title: 'Nicht im Notizordner gespeichert' }) : null,
+    warn ? el('span', { class: 'tab-warn', html: icon('warning'), title: t('Nicht im Notizordner gespeichert') }) : null,
     el('span', { class: 'tab-name ms-callout' }, displayName(tab)),
     el('button', {
-      class: 'tab-close', 'aria-label': `${displayName(tab)} schließen`, title: 'Schließen (Strg+W)', tabIndex: -1, html: icon('close'),
+      class: 'tab-close', 'aria-label': t('{name} schließen', { name: displayName(tab) }), title: t('Schließen (Strg+W)'), tabIndex: -1, html: icon('close'),
       onclick: (e) => { e.stopPropagation(); closeTab(tab.id); },
     }));
     return node;
@@ -489,19 +490,19 @@ function paintTabs() {
 
 function tabMenu(tab, at) {
   menu(at, [
-    { label: 'Schließen', run: () => closeTab(tab.id) },
-    { label: 'Andere schließen', run: () => state.tabs.filter((t) => t !== tab).forEach((t) => closeTab(t.id)) },
+    { label: t('Schließen'), run: () => closeTab(tab.id) },
+    { label: t('Andere schließen'), run: () => state.tabs.filter((t) => t !== tab).forEach((t) => closeTab(t.id)) },
     { separator: true },
-    ...(state.tabs.length > 1 ? [{ label: 'Rechts daneben anzeigen', run: () => placeBeside(tab.id, 1) }] : []),
-    ...(state.split?.includes(tab.id) ? [{ label: 'Nebeneinander beenden', run: () => { state.split = null; activate(tab.id); } }] : []),
+    ...(state.tabs.length > 1 ? [{ label: t('Rechts daneben anzeigen'), run: () => placeBeside(tab.id, 1) }] : []),
+    ...(state.split?.includes(tab.id) ? [{ label: t('Nebeneinander beenden'), run: () => { state.split = null; activate(tab.id); } }] : []),
     { separator: true },
     ...(tab.doc.path ? [
-      { label: 'Umbenennen …', run: () => renameItem(tab.doc.path, tab.doc.name) },
-      { label: 'Konvertieren …', run: () => convertMenu(tab.doc.path, at) },
-      { label: 'Im Dateimanager zeigen', run: () => api.reveal(tab.doc.path) },
+      { label: t('Umbenennen …'), run: () => renameItem(tab.doc.path, tab.doc.name) },
+      { label: t('Konvertieren …'), run: () => convertMenu(tab.doc.path, at) },
+      { label: t('Im Dateimanager zeigen'), run: () => api.reveal(tab.doc.path) },
     ] : []),
-    { label: 'Verlauf anzeigen …', run: () => showHistory({ id: tab.id }, displayName(tab)) },
-    ...(tab.doc.path ? [{ separator: true }, { label: 'In den Papierkorb legen', danger: true, run: () => trashItem({ path: tab.doc.path }) }] : []),
+    { label: t('Verlauf anzeigen …'), run: () => showHistory({ id: tab.id }, displayName(tab)) },
+    ...(tab.doc.path ? [{ separator: true }, { label: t('In den Papierkorb legen'), danger: true, run: () => trashItem({ path: tab.doc.path }) }] : []),
   ]);
 }
 
@@ -517,9 +518,9 @@ function paintStatus() {
   paintPosition();
   if (!tab) return;
   const md = isMd(tab.doc);
-  $('st-mode').textContent = md ? (tab.mode === 'rich' && !comparing(tab) ? 'Live' : 'Quelltext') : (tab.doc.ext.slice(1).toUpperCase() || 'Text');
+  $('st-mode').textContent = md ? (tab.mode === 'rich' && !comparing(tab) ? t('Live') : t('Quelltext')) : (tab.doc.ext.slice(1).toUpperCase() || t('Text'));
   $('st-mode').disabled = !md || comparing(tab);
-  $('st-mode').title = !md ? '' : comparing(tab) ? 'Beim Vergleichen zeigt jede Notiz ihren Quelltext' : 'Zwischen Live-Ansicht und Quelltext wechseln (Strg+/)';
+  $('st-mode').title = !md ? '' : comparing(tab) ? t('Beim Vergleichen zeigt jede Notiz ihren Quelltext') : t('Zwischen Live-Ansicht und Quelltext wechseln (Strg+/)');
   $('st-format').hidden = !isJsonFile(tab.doc);
   const enc = { 'utf-8': 'UTF-8', 'utf-16le': 'UTF-16 LE', 'utf-16be': 'UTF-16 BE', 'windows-1252': 'Windows-1252' }[tab.doc.encoding];
   $('st-enc').textContent = tab.doc.bom ? `${enc} BOM` : enc;
@@ -548,7 +549,7 @@ async function refreshTree() {
   clearTimeout(state.treeTimer);
   try {
     state.tree = await api.tree();
-    if (!state.tree.online) banner({ kind: 'warning', key: 'offline', sticky: true, text: `Der Notizordner ${state.tree.vault} ist nicht erreichbar. Dein Text bleibt im Journal, bis er wieder da ist.` });
+    if (!state.tree.online) banner({ kind: 'warning', key: 'offline', sticky: true, text: t('Der Notizordner {vault} ist nicht erreichbar. Dein Text bleibt im Journal, bis er wieder da ist.', { vault: state.tree.vault }) });
     else clearBanner('offline');
     paintTree();
   } catch (e) { failed(e); }
@@ -580,7 +581,7 @@ function paintTree() {
   const active = activeTab()?.doc.path;
   const rows = visibleRows();
   if (!rows.length) {
-    tree.replaceChildren(el('p', { class: 'tree-empty ms-callout ms-secondary' }, state.filter ? 'Nichts gefunden.' : 'Noch keine Notizen. Tippe einfach los.'));
+    tree.replaceChildren(el('p', { class: 'tree-empty ms-callout ms-secondary' }, state.filter ? t('Nichts gefunden.') : t('Noch keine Notizen. Tippe einfach los.')));
     return;
   }
   const focus = state.focusPath ?? active ?? rows[0].it.path;
@@ -680,37 +681,37 @@ async function treeDrop(e, it, node) {
 
 function itemMenu(it, at) {
   const common = [
-    { label: 'Umbenennen …', run: () => renameItem(it.path, it.name) },
-    { label: 'Verschieben nach …', run: () => moveItem(it) },
-    { label: 'Im Dateimanager zeigen', run: () => api.reveal(it.path) },
+    { label: t('Umbenennen …'), run: () => renameItem(it.path, it.name) },
+    { label: t('Verschieben nach …'), run: () => moveItem(it) },
+    { label: t('Im Dateimanager zeigen'), run: () => api.reveal(it.path) },
   ];
-  const del = [{ separator: true }, { label: 'In den Papierkorb legen', danger: true, run: () => trashItem(it) }];
+  const del = [{ separator: true }, { label: t('In den Papierkorb legen'), danger: true, run: () => trashItem(it) }];
   if (it.type === 'folder') {
     menu(at, [
-      { label: 'Neue Notiz …', run: () => createNoteIn(it.path) },
-      { label: 'Neuer Ordner …', run: () => createFolderIn(it.path) },
+      { label: t('Neue Notiz …'), run: () => createNoteIn(it.path) },
+      { label: t('Neuer Ordner …'), run: () => createFolderIn(it.path) },
       { separator: true }, ...common, ...del,
     ]);
   } else {
     menu(at, [
-      { label: 'Öffnen', run: () => openNote(it.path) }, { separator: true }, ...common,
-      { label: 'Konvertieren …', run: () => convertMenu(it.path, at) },
-      { label: 'Verlauf anzeigen …', run: () => showHistory({ path: it.path }, it.name) }, ...del,
+      { label: t('Öffnen'), run: () => openNote(it.path) }, { separator: true }, ...common,
+      { label: t('Konvertieren …'), run: () => convertMenu(it.path, at) },
+      { label: t('Verlauf anzeigen …'), run: () => showHistory({ path: it.path }, it.name) }, ...del,
     ]);
   }
 }
 
 async function renameItem(path, name) {
-  const next = await promptDialog({ title: 'Umbenennen', value: name, action: 'Umbenennen' });
+  const next = await promptDialog({ title: t('Umbenennen'), value: name, action: t('Umbenennen') });
   if (!next) return;
   try { await api.move(path, parentOf(path), next); refreshTree(); } catch (e) { failed(e); }
 }
 
 function moveItem(it) {
-  const folders = [{ path: '', label: 'Oberste Ebene' }, ...flat(state.tree.items).filter((x) => x.type === 'folder').map((x) => ({ path: x.path, label: x.path }))]
+  const folders = [{ path: '', label: t('Oberste Ebene') }, ...flat(state.tree.items).filter((x) => x.type === 'folder').map((x) => ({ path: x.path, label: x.path }))]
     .filter((f) => f.path !== it.path && !f.path.startsWith(`${it.path}/`) && f.path !== parentOf(it.path));
   pick({
-    title: `„${it.name}“ verschieben nach …`,
+    title: t('„{name}“ verschieben nach …', { name: it.name }),
     items: folders.map((f) => ({ label: f.label, run: async () => { try { await api.move(it.path, f.path); refreshTree(); } catch (e) { failed(e); } } })),
   });
 }
@@ -722,7 +723,7 @@ async function convertMenu(path, at) {
     const { rel, bytes } = await api.readForConvert(path);
     const name = rel.slice(rel.lastIndexOf('/') + 1);
     const items = conversionsFor(name, bytes, jsonIndent());
-    if (!items.length) { banner({ kind: 'info', text: `„${name}“ ist leer, es gibt nichts zu konvertieren.` }); return; }
+    if (!items.length) { banner({ kind: 'info', text: t('„{name}“ ist leer, es gibt nichts zu konvertieren.', { name }) }); return; }
     menu(at, items.map((c) => ({
       label: c.label,
       run: async () => {
@@ -747,7 +748,7 @@ async function trashItem(it) {
 }
 
 async function createFolderIn(parent) {
-  const name = await promptDialog({ title: 'Neuer Ordner', placeholder: 'Name', action: 'Anlegen' });
+  const name = await promptDialog({ title: t('Neuer Ordner'), placeholder: t('Name'), action: t('Anlegen') });
   if (!name) return;
   try {
     const rel = await api.createFolder(parent, name);
@@ -758,7 +759,7 @@ async function createFolderIn(parent) {
 }
 
 async function createNoteIn(folder) {
-  const name = await promptDialog({ title: 'Neue Notiz', placeholder: 'Name', action: 'Anlegen' });
+  const name = await promptDialog({ title: t('Neue Notiz'), placeholder: t('Name'), action: t('Anlegen') });
   if (!name) return;
   try {
     const rel = await api.createNote(folder, name);
@@ -787,79 +788,79 @@ function jsonTool(fn) {
 const inCode = (fn) => () => {
   const tab = activeTab();
   if (tab?.editor.kind === 'code') fn(tab.editor);
-  else banner({ kind: 'info', text: 'Das geht in Code-Dateien und in der Quelltextansicht (Strg+/).' });
+  else banner({ kind: 'info', text: t('Das geht in Code-Dateien und in der Quelltextansicht (Strg+/).') });
 };
 
 /** What opens something new: the menu on the plus button, and the top of the command list. */
 const openCommands = () => [
-  { label: 'Neuer Tab', hint: 'Strg+T', run: () => newTab() },
-  { label: 'Neue JSON-Datei', run: () => newTab({ ext: '.json' }) },
-  { label: 'Datei öffnen …', hint: 'Strg+O', run: openFiles },
-  { label: 'Notiz öffnen …', hint: 'Strg+P', run: quickOpen },
-  { label: 'Geschlossenen Tab zurückholen', hint: 'Strg+Umschalt+T', run: reopenClosed, disabled: !state.closed.length },
+  { label: t('Neuer Tab'), hint: keys('Strg+T'), run: () => newTab() },
+  { label: t('Neue JSON-Datei'), run: () => newTab({ ext: '.json' }) },
+  { label: t('Datei öffnen …'), hint: keys('Strg+O'), run: openFiles },
+  { label: t('Notiz öffnen …'), hint: keys('Strg+P'), run: quickOpen },
+  { label: t('Geschlossenen Tab zurückholen'), hint: keys('Strg+Umschalt+T'), run: reopenClosed, disabled: !state.closed.length },
 ];
 
-const showCommands = () => pick({ title: 'Befehl …', items: commands() });
+const showCommands = () => pick({ title: t('Befehl …'), items: commands() });
 
 /** [what it does, keys, where it applies]. tests/e2e.mjs checks that every shortcut of the command list is in here too. */
 const SHORTCUTS = [
-  ['Tabs', [
-    ['Neuer Tab', ['Strg+T', 'Strg+N']],
-    ['Tab schließen', ['Strg+W']],
-    ['Geschlossenen Tab zurückholen', ['Strg+Umschalt+T']],
-    ['Nächster Tab', ['Strg+Tab', 'Strg+Bild↓']],
-    ['Voriger Tab', ['Strg+Umschalt+Tab', 'Strg+Bild↑']],
+  [t('Tabs'), [
+    [t('Neuer Tab'), ['Strg+T', 'Strg+N']],
+    [t('Tab schließen'), ['Strg+W']],
+    [t('Geschlossenen Tab zurückholen'), ['Strg+Umschalt+T']],
+    [t('Nächster Tab'), ['Strg+Tab', 'Strg+Bild↓']],
+    [t('Voriger Tab'), ['Strg+Umschalt+Tab', 'Strg+Bild↑']],
   ]],
-  ['Öffnen und finden', [
-    ['Notiz öffnen', ['Strg+P']],
-    ['Datei öffnen', ['Strg+O']],
-    ['Alle Befehle', ['Strg+Umschalt+P']],
-    ['In allen Notizen suchen', ['Strg+Umschalt+F']],
-    ['Suchen und Ersetzen', ['Strg+F', 'Strg+H']],
-    ['Einstellungen', ['Strg+,']],
-    ['Tastenkürzel', ['F1']],
+  [t('Öffnen und finden'), [
+    [t('Notiz öffnen'), ['Strg+P']],
+    [t('Datei öffnen'), ['Strg+O']],
+    [t('Alle Befehle'), ['Strg+Umschalt+P']],
+    [t('In allen Notizen suchen'), ['Strg+Umschalt+F']],
+    [t('Suchen und Ersetzen'), ['Strg+F', 'Strg+H']],
+    [t('Einstellungen'), ['Strg+,']],
+    [t('Tastenkürzel'), ['F1']],
   ]],
-  ['Bearbeiten', [
-    ['Rückgängig, wiederholen', ['Strg+Z', 'Strg+Y']],
-    ['Sofort in den Notizordner schreiben', ['Strg+S']],
-    ['Einrücken, ausrücken', ['Tab', 'Umschalt+Tab']],
-    ['Editor mit der Tastatur verlassen', ['Esc, dann Tab']],
+  [t('Bearbeiten'), [
+    [t('Rückgängig, wiederholen'), ['Strg+Z', 'Strg+Y']],
+    [t('Sofort in den Notizordner schreiben'), ['Strg+S']],
+    [t('Einrücken, ausrücken'), ['Tab', 'Umschalt+Tab']],
+    [t('Editor mit der Tastatur verlassen'), ['Esc, dann Tab']],
   ]],
-  ['Notizen', [
-    ['Live-Ansicht und Quelltext wechseln', ['Strg+/']],
-    ['Blockmenü', ['/'], 'Am Anfang einer Zeile'],
-    ['Fett, kursiv', ['Strg+B', 'Strg+I']],
-    ['Unverändert als Code-Block einfügen', ['Strg+Umschalt+V']],
-    ['Link öffnen', ['Strg+Klick']],
-    ['Im Baum umbenennen', ['F2']],
-    ['Im Baum in den Papierkorb legen', ['Entf']],
+  [t('Notizen'), [
+    [t('Live-Ansicht und Quelltext wechseln'), ['Strg+/']],
+    [t('Blockmenü'), ['/'], t('Am Anfang einer Zeile')],
+    [t('Fett, kursiv'), ['Strg+B', 'Strg+I']],
+    [t('Unverändert als Code-Block einfügen'), ['Strg+Umschalt+V']],
+    [t('Link öffnen'), ['Strg+Klick']],
+    [t('Im Baum umbenennen'), ['F2']],
+    [t('Im Baum in den Papierkorb legen'), ['Entf']],
   ]],
-  ['Code-Dateien und Quelltext', [
-    ['Zeile duplizieren, löschen', ['Strg+D', 'Strg+L']],
-    ['Zeile verschieben', ['Strg+Umschalt+↑', 'Strg+Umschalt+↓']],
-    ['Gehe zu Zeile', ['Strg+G']],
-    ['Weiterer Cursor, Spaltenauswahl', ['Strg+Klick', 'Alt+Ziehen']],
+  [t('Code-Dateien und Quelltext'), [
+    [t('Zeile duplizieren, löschen'), ['Strg+D', 'Strg+L']],
+    [t('Zeile verschieben'), ['Strg+Umschalt+↑', 'Strg+Umschalt+↓']],
+    [t('Gehe zu Zeile'), ['Strg+G']],
+    [t('Weiterer Cursor, Spaltenauswahl'), ['Strg+Klick', 'Alt+Ziehen']],
   ]],
-  ['JSON', [
-    ['Formatieren', ['Strg+Alt+J'], 'Auswahl, Code-Block unter dem Cursor oder ganze Datei'],
-    ['Komprimieren', ['Strg+Alt+Umschalt+J']],
+  [t('JSON'), [
+    [t('Formatieren'), ['Strg+Alt+J'], t('Auswahl, Code-Block unter dem Cursor oder ganze Datei')],
+    [t('Komprimieren'), ['Strg+Alt+Umschalt+J']],
   ]],
-  ['Vergleichen', [
-    ['Zwei Tabs vergleichen, beenden', ['Strg+Alt+D'], 'Wenn zwei Tabs nebeneinander offen sind'],
-    ['Nächster, voriger Unterschied', ['Alt+↓', 'Alt+↑']],
+  [t('Vergleichen'), [
+    [t('Zwei Tabs vergleichen, beenden'), ['Strg+Alt+D'], t('Wenn zwei Tabs nebeneinander offen sind')],
+    [t('Nächster, voriger Unterschied'), ['Alt+↓', 'Alt+↑']],
   ]],
 ];
 
 function showShortcuts() {
-  const { body } = sheet('Tastenkürzel');
+  const { body } = sheet(t('Tastenkürzel'));
   for (const [title, entries] of SHORTCUTS) {
-    body.append(...section(title, ...entries.map(([label, keys, hint]) => row({
-      label, hint, end: el('span', { class: 'key-list ms-callout ms-secondary ms-num' }, ...keys.map((k) => el('kbd', {}, k))),
+    body.append(...section(title, ...entries.map(([label, combos, hint]) => row({
+      label, hint, end: el('span', { class: 'key-list ms-callout ms-secondary ms-num' }, ...combos.map((k) => el('kbd', {}, keys(k)))),
     }))));
   }
   // The list is longer than the sheet: focus on the scroller, so the arrow keys move it right away.
   body.tabIndex = 0;
-  body.setAttribute('aria-label', 'Liste der Tastenkürzel');
+  body.setAttribute('aria-label', t('Liste der Tastenkürzel'));
   body.focus();
 }
 
@@ -868,34 +869,34 @@ function commands() {
   const md = tab && isMd(tab.doc);
   return [
     ...openCommands(),
-    { label: 'In allen Notizen suchen …', hint: 'Strg+Umschalt+F', run: showSearch },
-    { label: 'Suchen und Ersetzen', hint: 'Strg+F', run: () => tab?.editor.find() },
-    { label: 'JSON formatieren (Pretty Print)', hint: 'Strg+Alt+J', run: () => jsonTool(prettyJson) },
-    { label: 'JSON komprimieren (Minify)', hint: 'Strg+Alt+Umschalt+J', run: () => jsonTool((s) => minifyJson(s)) },
-    ...(md && !comparing(tab) ? [{ label: tab.mode === 'rich' ? 'Quelltext anzeigen' : 'Live-Ansicht anzeigen', hint: 'Strg+/', run: () => switchMode(tab, tab.mode === 'rich' ? 'code' : 'rich') }] : []),
-    ...(state.split ? [{ label: state.compare ? 'Vergleichen beenden' : 'Tabs vergleichen', hint: 'Strg+Alt+D', run: () => setCompare(!state.compare) }] : []),
+    { label: t('In allen Notizen suchen …'), hint: keys('Strg+Umschalt+F'), run: showSearch },
+    { label: t('Suchen und Ersetzen'), hint: keys('Strg+F'), run: () => tab?.editor.find() },
+    { label: t('JSON formatieren (Pretty Print)'), hint: keys('Strg+Alt+J'), run: () => jsonTool(prettyJson) },
+    { label: t('JSON komprimieren (Minify)'), hint: keys('Strg+Alt+Umschalt+J'), run: () => jsonTool((s) => minifyJson(s)) },
+    ...(md && !comparing(tab) ? [{ label: tab.mode === 'rich' ? t('Quelltext anzeigen') : t('Live-Ansicht anzeigen'), hint: keys('Strg+/'), run: () => switchMode(tab, tab.mode === 'rich' ? 'code' : 'rich') }] : []),
+    ...(state.split ? [{ label: state.compare ? t('Vergleichen beenden') : t('Tabs vergleichen'), hint: keys('Strg+Alt+D'), run: () => setCompare(!state.compare) }] : []),
     ...(state.merge ? [
-      { label: 'Nächster Unterschied', hint: 'Alt+↓', run: () => jumpToDifference(1) },
-      { label: 'Voriger Unterschied', hint: 'Alt+↑', run: () => jumpToDifference(-1) },
+      { label: t('Nächster Unterschied'), hint: keys('Alt+↓'), run: () => jumpToDifference(1) },
+      { label: t('Voriger Unterschied'), hint: keys('Alt+↑'), run: () => jumpToDifference(-1) },
     ] : []),
-    { label: 'Zeilen sortieren (aufsteigend)', run: inCode((e) => e.changeLines(lineCommands.sortAsc)) },
-    { label: 'Zeilen sortieren (absteigend)', run: inCode((e) => e.changeLines(lineCommands.sortDesc)) },
-    { label: 'Doppelte Zeilen entfernen', run: inCode((e) => e.changeLines(lineCommands.unique)) },
-    { label: 'Leerzeilen entfernen', run: inCode((e) => e.changeLines(lineCommands.dropEmpty)) },
-    { label: 'Leerzeichen am Zeilenende entfernen', run: inCode((e) => e.changeLines(lineCommands.trimEnd)) },
-    { label: 'GROSSBUCHSTABEN', run: inCode((e) => e.transformCase((s) => s.toUpperCase())) },
-    { label: 'kleinbuchstaben', run: inCode((e) => e.transformCase((s) => s.toLowerCase())) },
-    { label: 'Verlauf anzeigen …', run: () => tab && showHistory({ id: tab.id }, displayName(tab)) },
-    { label: 'Papierkorb öffnen …', run: showTrash },
-    { label: 'Zeilenumbruch umschalten', run: () => setSetting('wrap', !state.settings.wrap) },
-    { label: 'Einstellungen …', hint: 'Strg+,', run: showSettings },
-    { label: 'Tastenkürzel …', hint: 'F1', run: showShortcuts },
+    { label: t('Zeilen sortieren (aufsteigend)'), run: inCode((e) => e.changeLines(lineCommands.sortAsc)) },
+    { label: t('Zeilen sortieren (absteigend)'), run: inCode((e) => e.changeLines(lineCommands.sortDesc)) },
+    { label: t('Doppelte Zeilen entfernen'), run: inCode((e) => e.changeLines(lineCommands.unique)) },
+    { label: t('Leerzeilen entfernen'), run: inCode((e) => e.changeLines(lineCommands.dropEmpty)) },
+    { label: t('Leerzeichen am Zeilenende entfernen'), run: inCode((e) => e.changeLines(lineCommands.trimEnd)) },
+    { label: t('GROSSBUCHSTABEN'), run: inCode((e) => e.transformCase((s) => s.toUpperCase())) },
+    { label: t('kleinbuchstaben'), run: inCode((e) => e.transformCase((s) => s.toLowerCase())) },
+    { label: t('Verlauf anzeigen …'), run: () => tab && showHistory({ id: tab.id }, displayName(tab)) },
+    { label: t('Papierkorb öffnen …'), run: showTrash },
+    { label: t('Zeilenumbruch umschalten'), run: () => setSetting('wrap', !state.settings.wrap) },
+    { label: t('Einstellungen …'), hint: keys('Strg+,'), run: showSettings },
+    { label: t('Tastenkürzel …'), hint: keys('F1'), run: showShortcuts },
   ];
 }
 
 function quickOpen() {
   pick({
-    title: 'Notiz öffnen …',
+    title: t('Notiz öffnen …'),
     items: flat(state.tree.items).filter((x) => x.type === 'file').map((x) => ({ label: x.path, run: () => openNote(x.path) })),
   });
 }
@@ -913,17 +914,17 @@ async function reopenClosed() {
 // ---------------------------------------------------------------- sheets
 
 async function showSearch() {
-  const { body, close } = sheet('In allen Notizen suchen', { wide: true });
-  const query = el('input', { class: 'ms-field wide', type: 'search', placeholder: 'Suchbegriff', 'aria-label': 'Suchbegriff' });
+  const { body, close } = sheet(t('In allen Notizen suchen'), { wide: true });
+  const query = el('input', { class: 'ms-field wide', type: 'search', placeholder: t('Suchbegriff'), 'aria-label': t('Suchbegriff') });
   const regex = el('input', { type: 'checkbox', class: 'ms-checkbox' });
   const cased = el('input', { type: 'checkbox', class: 'ms-checkbox' });
   const results = el('div', { class: 'search-results', role: 'list' });
   const run = async () => {
     if (!query.value) { results.replaceChildren(); return; }
-    results.replaceChildren(el('p', { class: 'ms-callout ms-secondary' }, 'Sucht …'));
+    results.replaceChildren(el('p', { class: 'ms-callout ms-secondary' }, t('Sucht …')));
     try {
       const hits = await api.search({ query: query.value, regex: regex.checked, caseSensitive: cased.checked });
-      if (!hits.length) { results.replaceChildren(el('p', { class: 'ms-callout ms-secondary' }, 'Kein Treffer.')); return; }
+      if (!hits.length) { results.replaceChildren(el('p', { class: 'ms-callout ms-secondary' }, t('Kein Treffer.'))); return; }
       results.replaceChildren(...hits.map((h) => el('button', {
         class: 'search-hit', role: 'listitem',
         onclick: () => {
@@ -931,59 +932,59 @@ async function showSearch() {
           close();
           openNote(h.path, (tab) => { if (tab.editor.goTo) tab.editor.goTo(h.line, h.column); else tab.editor.find(q); });
         },
-      }, el('span', { class: 'ms-caption ms-secondary ms-num' }, `${h.path} · Zeile ${h.line}`), el('span', { class: 'search-text' }, h.text))));
+      }, el('span', { class: 'ms-caption ms-secondary ms-num' }, `${h.path} · ${t('Zeile {line}', { line: h.line })}`), el('span', { class: 'search-text' }, h.text))));
     } catch (e) { results.replaceChildren(el('p', { class: 'ms-callout field-error' }, e.message)); }
   };
-  let t;
-  query.addEventListener('input', () => { clearTimeout(t); t = setTimeout(run, 250); });
+  let timer;
+  query.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 250); });
   for (const c of [regex, cased]) c.addEventListener('change', run);
   body.append(query, el('div', { class: 'search-options' },
-    el('label', { class: 'ms-check-label ms-callout' }, regex, 'Regulärer Ausdruck'),
-    el('label', { class: 'ms-check-label ms-callout' }, cased, 'Groß/klein beachten')), results);
+    el('label', { class: 'ms-check-label ms-callout' }, regex, t('Regulärer Ausdruck')),
+    el('label', { class: 'ms-check-label ms-callout' }, cased, t('Groß/klein beachten'))), results);
   query.focus();
 }
 
 async function showTrash() {
-  const { body } = sheet('Papierkorb');
+  const { body } = sheet(t('Papierkorb'));
   const paint = async () => {
     const items = await api.listTrash();
     body.replaceChildren();
-    if (!items.length) { body.append(el('p', { class: 'empty ms-secondary' }, 'Der Papierkorb ist leer.')); return; }
-    body.append(...section(`${items.length} ${items.length === 1 ? 'Eintrag' : 'Einträge'}`, ...items.map((it) => row({
-      label: it.rel, hint: new Date(it.deletedAt).toLocaleString('de-DE'),
-      end: el('button', { class: 'ms-button', onclick: async () => { try { await api.restoreTrash(it.id); paint(); refreshTree(); } catch (e) { failed(e); } } }, 'Wiederherstellen'),
+    if (!items.length) { body.append(el('p', { class: 'empty ms-secondary' }, t('Der Papierkorb ist leer.'))); return; }
+    body.append(...section(count(items.length, t('Eintrag'), t('Einträge')), ...items.map((it) => row({
+      label: it.rel, hint: new Date(it.deletedAt).toLocaleString(locale()),
+      end: el('button', { class: 'ms-button', onclick: async () => { try { await api.restoreTrash(it.id); paint(); refreshTree(); } catch (e) { failed(e); } } }, t('Wiederherstellen')),
     }))));
     body.append(el('div', { class: 'sheet-actions' }, el('button', {
       class: 'ms-button ms-button--destructive',
       onclick: async () => {
         const yes = await alertDialog({
-          title: 'Papierkorb endgültig leeren?',
-          text: `Die Dateien und ihre früheren Versionen werden von der Platte gelöscht${state.settings.backup ? ', auch am zweiten Sicherungsort' : ''}.`,
-          actions: [{ label: 'Abbrechen', primary: true }, { label: 'Endgültig löschen', danger: true, value: true }],
+          title: t('Papierkorb endgültig leeren?'),
+          text: state.settings.backup ? t('Die Dateien und ihre früheren Versionen werden von der Platte gelöscht, auch am zweiten Sicherungsort.') : t('Die Dateien und ihre früheren Versionen werden von der Platte gelöscht.'),
+          actions: [{ label: t('Abbrechen'), primary: true }, { label: t('Endgültig löschen'), danger: true, value: true }],
         });
         if (yes) { try { await api.emptyTrash(); paint(); } catch (e) { failed(e); } }
       },
-    }, 'Papierkorb leeren')));
+    }, t('Papierkorb leeren'))));
   };
   await paint();
 }
 
 async function showHistory(ref, name) {
-  const { body, close } = sheet(`Verlauf von ${name}`, { wide: true });
+  const { body, close } = sheet(t('Verlauf von {name}', { name }), { wide: true });
   let versions = [];
   try { versions = await api.history(ref); } catch (e) { body.append(el('p', { class: 'field-error' }, e.message)); return; }
-  if (!versions.length) { body.append(el('p', { class: 'empty ms-secondary' }, 'Noch keine früheren Versionen. Sie entstehen beim Bearbeiten.')); return; }
-  const preview = el('pre', { class: 'history-preview ms-scroll', tabIndex: 0, 'aria-label': 'Vorschau' });
-  const restore = el('button', { class: 'ms-button ms-button--prominent' }, 'Diese Version wiederherstellen');
+  if (!versions.length) { body.append(el('p', { class: 'empty ms-secondary' }, t('Noch keine früheren Versionen. Sie entstehen beim Bearbeiten.'))); return; }
+  const preview = el('pre', { class: 'history-preview ms-scroll', tabIndex: 0, 'aria-label': t('Vorschau') });
+  const restore = el('button', { class: 'ms-button ms-button--prominent' }, t('Diese Version wiederherstellen'));
   let current = '';
-  const list = el('div', { class: 'history-list ms-scroll', role: 'listbox', 'aria-label': 'Versionen' }, ...versions.map((v, i) => el('button', {
+  const list = el('div', { class: 'history-list ms-scroll', role: 'listbox', 'aria-label': t('Versionen') }, ...versions.map((v, i) => el('button', {
     class: `history-row ms-num${i === 0 ? ' is-active' : ''}`, role: 'option',
     onclick: async (e) => {
       list.querySelectorAll('.is-active').forEach((n) => n.classList.remove('is-active'));
       e.currentTarget.classList.add('is-active');
       await show(v);
     },
-  }, new Date(v.date).toLocaleString('de-DE'))));
+  }, new Date(v.date).toLocaleString(locale()))));
   const show = async (v) => { current = await api.readVersion(ref, v.version); preview.textContent = current; };
   restore.addEventListener('click', async () => {
     const apply = async (tab) => {
@@ -996,7 +997,7 @@ async function showHistory(ref, name) {
       await api.update(tab.id, current); // the raw version, not what the editor would regenerate from it
       await api.commit(tab.id);
       close();
-      banner({ kind: 'ok', text: 'Version wiederhergestellt. Der vorherige Stand bleibt im Verlauf.' });
+      banner({ kind: 'ok', text: t('Version wiederhergestellt. Der vorherige Stand bleibt im Verlauf.') });
     };
     try {
       const tab = ref.id ? state.tabs.find((t) => t.id === ref.id) : null;
@@ -1042,6 +1043,28 @@ function applySettings() {
   placeBrand(s.sidebarHidden);
 }
 
+/** Every text is read once when the window loads: save everything, then load it again in the new language, back in the settings. */
+async function changeLanguage(language) {
+  try {
+    state.settings = await api.setSettings({ language });
+    await flushAll();
+    await saveSession();
+    sessionStorage.setItem('reopen', 'settings');
+    api.win('reload');
+  } catch (e) { failed(e); }
+}
+
+/** index.html is written in German: its texts go through t() once at start. */
+function translatePage() {
+  const html = document.documentElement;
+  html.lang = language();
+  html.style.setProperty('--empty-hint', JSON.stringify(t('Einfach lostippen. / öffnet das Blockmenü.')));
+  for (const n of document.querySelectorAll('[title], [aria-label], [placeholder]')) {
+    for (const a of ['title', 'aria-label', 'placeholder']) if (n.hasAttribute(a)) n.setAttribute(a, t(n.getAttribute(a)));
+  }
+  for (const n of document.querySelectorAll('.split-zone, #st-format')) n.textContent = t(n.textContent);
+}
+
 /** W-1: the app's name and the sidebar button live in the sidebar, or in a capsule of their own in the title row while it is away. */
 function placeBrand(hidden) {
   const brand = $('brand');
@@ -1052,17 +1075,17 @@ function placeBrand(hidden) {
   brand.classList.toggle('ms-glass', hidden);
   brand.classList.toggle('ms-glass--capsule', hidden);
   if (hidden) $('tabs').after(brand); else $('sidebar').prepend(brand);
-  const label = hidden ? 'Seitenleiste einblenden' : 'Seitenleiste ausblenden';
+  const label = hidden ? t('Seitenleiste einblenden') : t('Seitenleiste ausblenden');
   button.setAttribute('aria-label', label);
   button.title = label;
   if (focused) button.focus();
 }
 
 function showSettings() {
-  const { body, close } = sheet('Einstellungen');
+  const { body, close } = sheet(t('Einstellungen'));
   const s = state.settings;
   const vaultValue = el('span', { class: 'path-value ms-caption ms-secondary' }, s.vault);
-  const backupValue = el('span', { class: 'path-value ms-caption ms-secondary' }, s.backup ?? 'Nicht eingerichtet');
+  const backupValue = el('span', { class: 'path-value ms-caption ms-secondary' }, s.backup ?? t('Nicht eingerichtet'));
   const glass = el('input', {
     type: 'range', class: 'ms-slider', min: 0, max: 1, step: 0.01, value: s.glass, 'aria-label': 'Liquid Glass', style: `--_v:${s.glass * 100}%`,
     oninput: (e) => { e.target.style.setProperty('--_v', `${e.target.value * 100}%`); document.documentElement.style.setProperty('--ms-glass-level', e.target.value); },
@@ -1072,8 +1095,8 @@ function showSettings() {
     const dir = await api.chooseFolder();
     if (!dir) return;
     const yes = await alertDialog({
-      title: 'Notizordner wechseln?', text: `Alle Notizen werden nach ${dir} kopiert und geprüft. Der alte Ordner bleibt unverändert, gleichnamige Dateien werden nicht überschrieben.`,
-      actions: [{ label: 'Abbrechen' }, { label: 'Kopieren und wechseln', primary: true, value: true }],
+      title: t('Notizordner wechseln?'), text: t('Alle Notizen werden nach {dir} kopiert und geprüft. Der alte Ordner bleibt unverändert, gleichnamige Dateien werden nicht überschrieben.', { dir }),
+      actions: [{ label: t('Abbrechen') }, { label: t('Kopieren und wechseln'), primary: true, value: true }],
     });
     if (!yes) return;
     try {
@@ -1086,39 +1109,44 @@ function showSettings() {
   const setBackup = async (dir) => {
     try {
       state.settings = await api.setBackup(dir);
-      backupValue.textContent = state.settings.backup ?? 'Nicht eingerichtet';
-      if (dir) banner({ kind: 'ok', text: 'Sicherungsort eingerichtet. Notizen und Verlauf werden dorthin kopiert.' });
+      backupValue.textContent = state.settings.backup ?? t('Nicht eingerichtet');
+      if (dir) banner({ kind: 'ok', text: t('Sicherungsort eingerichtet. Notizen und Verlauf werden dorthin kopiert.') });
     } catch (e) { failed(e); }
   };
   body.append(
-    ...section('Speicherort',
-      row({ tile: 'folder', color: 'connection', label: 'Notizordner', hint: vaultValue, end: el('button', { class: 'ms-button', onclick: changeVault }, 'Ändern …') }),
+    ...section(t('Speicherort'),
+      row({ tile: 'folder', color: 'connection', label: t('Notizordner'), hint: vaultValue, end: el('button', { class: 'ms-button', onclick: changeVault }, t('Ändern …')) }),
       row({
-        tile: 'history', color: 'detection', label: 'Zweiter Sicherungsort', hint: backupValue,
+        tile: 'history', color: 'detection', label: t('Zweiter Sicherungsort'), hint: backupValue,
         end: el('span', { class: 'row-buttons' },
-          el('button', { class: 'ms-button', onclick: async () => { const d = await api.chooseFolder(); if (d) setBackup(d); } }, 'Wählen …'),
-          el('button', { class: 'ms-button', onclick: () => setBackup(null) }, 'Entfernen')),
+          el('button', { class: 'ms-button', onclick: async () => { const d = await api.chooseFolder(); if (d) setBackup(d); } }, t('Wählen …')),
+          el('button', { class: 'ms-button', onclick: () => setBackup(null) }, t('Entfernen'))),
       })),
-    el('p', { class: 'ms-caption ms-secondary sheet-note' }, 'Der zweite Sicherungsort schützt vor einem Plattenausfall. Nimm dafür ein anderes Laufwerk oder ein NAS. Was du hier umbenennst, verschiebst oder löschst, ändert sich dort genauso. Was außerhalb der App verschwindet, bleibt dort erhalten.'),
-    ...section('Darstellung',
+    el('p', { class: 'ms-caption ms-secondary sheet-note' }, t('Der zweite Sicherungsort schützt vor einem Plattenausfall. Nimm dafür ein anderes Laufwerk oder ein NAS. Was du hier umbenennst, verschiebst oder löschst, ändert sich dort genauso. Was außerhalb der App verschwindet, bleibt dort erhalten.')),
+    ...section(t('Darstellung'),
       row({
-        tile: 'theme', color: 'appearance', label: 'Erscheinungsbild',
-        end: picker(() => state.settings.theme, [{ value: 'auto', label: 'Automatisch' }, { value: 'light', label: 'Hell' }, { value: 'dark', label: 'Dunkel' }], (v) => setSetting('theme', v)),
+        tile: 'globe', color: 'appearance', label: t('Sprache'), hint: t('Die Sprache der App. „System“ folgt der Spracheinstellung des Systems.'),
+        // S-5: each language in its own spelling
+        end: picker(() => state.settings.language, [{ value: 'auto', label: t('System') }, { value: 'de', label: 'Deutsch' }, { value: 'en', label: 'English' }], changeLanguage),
       }),
-      row({ tile: 'glass', color: 'appearance', label: 'Liquid Glass', end: el('span', { class: 'slider-labels ms-caption ms-secondary' }, 'Klar', glass, 'Getönt') }),
-      row({ tile: 'contrast', color: 'appearance', label: 'Kontrast erhöhen', end: switchControl('contrast', 'Kontrast erhöhen') }),
-      row({ tile: 'transparency', color: 'appearance', label: 'Transparenz reduzieren', end: switchControl('transparency', 'Transparenz reduzieren') }),
-      row({ tile: 'motion', color: 'appearance', label: 'Bewegung reduzieren', end: switchControl('motion', 'Bewegung reduzieren') })),
+      row({
+        tile: 'theme', color: 'appearance', label: t('Erscheinungsbild'),
+        end: picker(() => state.settings.theme, [{ value: 'auto', label: t('Automatisch') }, { value: 'light', label: t('Hell') }, { value: 'dark', label: t('Dunkel') }], (v) => setSetting('theme', v)),
+      }),
+      row({ tile: 'glass', color: 'appearance', label: 'Liquid Glass', end: el('span', { class: 'slider-labels ms-caption ms-secondary' }, t('Klar'), glass, t('Getönt')) }),
+      row({ tile: 'contrast', color: 'appearance', label: t('Kontrast erhöhen'), end: switchControl('contrast', t('Kontrast erhöhen')) }),
+      row({ tile: 'transparency', color: 'appearance', label: t('Transparenz reduzieren'), end: switchControl('transparency', t('Transparenz reduzieren')) }),
+      row({ tile: 'motion', color: 'appearance', label: t('Bewegung reduzieren'), end: switchControl('motion', t('Bewegung reduzieren')) })),
     ...section('Editor',
       row({
-        tile: 'file', color: 'controls', label: 'Schriftgröße',
+        tile: 'file', color: 'controls', label: t('Schriftgröße'),
         end: picker(() => state.settings.fontSize, [12, 13, 14, 15, 16, 18, 20].map((n) => ({ value: n, label: `${n} px` })), (v) => setSetting('fontSize', v)),
       }),
-      row({ tile: 'file', color: 'controls', label: 'Lange Zeilen umbrechen', end: switchControl('wrap', 'Lange Zeilen umbrechen') }),
-      row({ tile: 'file', color: 'controls', label: 'Volle Breite nutzen', hint: 'Notizen beginnen links statt in der Mitte.', end: switchControl('fullWidth', 'Volle Breite nutzen') }),
+      row({ tile: 'file', color: 'controls', label: t('Lange Zeilen umbrechen'), end: switchControl('wrap', t('Lange Zeilen umbrechen')) }),
+      row({ tile: 'file', color: 'controls', label: t('Volle Breite nutzen'), hint: t('Notizen beginnen links statt in der Mitte.'), end: switchControl('fullWidth', t('Volle Breite nutzen')) }),
       row({
-        tile: 'code', color: 'controls', label: 'Einzug für JSON',
-        end: picker(() => state.settings.jsonIndent, [{ value: 2, label: '2 Leerzeichen' }, { value: 4, label: '4 Leerzeichen' }, { value: 'tab', label: 'Tabulator' }], (v) => setSetting('jsonIndent', v)),
+        tile: 'code', color: 'controls', label: t('Einzug für JSON'),
+        end: picker(() => state.settings.jsonIndent, [{ value: 2, label: t('2 Leerzeichen') }, { value: 4, label: t('4 Leerzeichen') }, { value: 'tab', label: t('Tabulator') }], (v) => setSetting('jsonIndent', v)),
       })),
   );
   return close;
@@ -1181,7 +1209,7 @@ api.onEvent((e) => {
     }
     if (tab.doc.autoTitle) tab.title = nameFromText(tab.doc.text, tab.doc.ext);
     paintTabs();
-    banner({ kind: 'info', text: `„${displayName(tab)}“ wurde außerhalb geändert und neu geladen. Der vorige Stand liegt im Verlauf.` });
+    banner({ kind: 'info', text: t('„{name}“ wurde außerhalb geändert und neu geladen. Der vorige Stand liegt im Verlauf.', { name: displayName(tab) }) });
   } else if (e.type === 'opened') show(e.doc);
   else if (e.type === 'error') banner({ kind: 'warning', text: e.message });
   else if (e.type === 'window') {
@@ -1250,15 +1278,15 @@ function wire() {
   iconize('side-toggle', 'sidebar');
   $('side-toggle').addEventListener('click', () => setSetting('sidebarHidden', !state.settings.sidebarHidden));
   const sideLink = (id, name, label, run) => { const b = $(id); b.innerHTML = icon(name); b.append(label); b.addEventListener('click', run); };
-  sideLink('btn-search', 'search', 'In allen Notizen suchen', showSearch);
-  sideLink('btn-trash', 'trash', 'Papierkorb', showTrash);
-  sideLink('btn-keys', 'keyboard', 'Tastenkürzel', showShortcuts);
-  sideLink('btn-settings', 'settings', 'Einstellungen', showSettings);
+  sideLink('btn-search', 'search', t('In allen Notizen suchen'), showSearch);
+  sideLink('btn-trash', 'trash', t('Papierkorb'), showTrash);
+  sideLink('btn-keys', 'keyboard', t('Tastenkürzel'), showShortcuts);
+  sideLink('btn-settings', 'settings', t('Einstellungen'), showSettings);
 
   $('tab-new').addEventListener('click', () => newTab());
   $('tab-new').addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    menu(e.currentTarget, [...openCommands(), { separator: true }, { label: 'Alle Befehle …', run: showCommands }]);
+    menu(e.currentTarget, [...openCommands(), { separator: true }, { label: t('Alle Befehle …'), run: showCommands }]);
   });
   // A mouse wheel only scrolls vertically and this list shows no scrollbar: without this, tabs that moved out of view stay out of reach.
   $('tab-list').addEventListener('wheel', (e) => {
@@ -1289,7 +1317,7 @@ function wire() {
   tree.addEventListener('contextmenu', (e) => {
     if (e.target !== tree) return;
     e.preventDefault();
-    menu({ x: e.clientX, y: e.clientY }, [{ label: 'Neue Notiz …', run: () => createNoteIn('') }, { label: 'Neuer Ordner …', run: () => createFolderIn('') }]);
+    menu({ x: e.clientX, y: e.clientY }, [{ label: t('Neue Notiz …'), run: () => createNoteIn('') }, { label: t('Neuer Ordner …'), run: () => createFolderIn('') }]);
   });
   tree.addEventListener('dragover', (e) => { if (state.drag && e.target === tree) { e.preventDefault(); tree.classList.add('drop-root'); } });
   tree.addEventListener('dragleave', () => tree.classList.remove('drop-root'));
@@ -1310,13 +1338,13 @@ function wire() {
     const d = activeTab()?.doc;
     if (!d) return;
     menu(e.currentTarget, [
-      ['UTF-8', 'utf-8', false], ['UTF-8 mit BOM', 'utf-8', true], ['UTF-16 LE', 'utf-16le', true], ['UTF-16 BE', 'utf-16be', true], ['Windows-1252', 'windows-1252', false],
+      ['UTF-8', 'utf-8', false], [t('UTF-8 mit BOM'), 'utf-8', true], ['UTF-16 LE', 'utf-16le', true], ['UTF-16 BE', 'utf-16be', true], ['Windows-1252', 'windows-1252', false],
     ].map(([label, encoding, bom]) => ({ label, checked: d.encoding === encoding && d.bom === bom, run: () => changeFormat({ encoding, bom }) })));
   });
   $('st-eol').addEventListener('click', (e) => {
     const d = activeTab()?.doc;
     if (!d) return;
-    menu(e.currentTarget, [['LF (Linux)', '\n'], ['CRLF (Windows)', '\r\n'], ['CR (altes macOS)', '\r']].map(([label, eol]) => ({ label, checked: d.eol === eol, run: () => changeFormat({ eol }) })));
+    menu(e.currentTarget, [['LF (Linux)', '\n'], ['CRLF (Windows)', '\r\n'], [t('CR (altes macOS)'), '\r']].map(([label, eol]) => ({ label, checked: d.eol === eol, run: () => changeFormat({ eol }) })));
   });
 
   // Sidebar width: drag, or arrow keys for the keyboard.
@@ -1345,12 +1373,13 @@ function wire() {
 // ---------------------------------------------------------------- start
 
 async function start() {
+  translatePage();
   wire();
   state.settings = await api.settings();
   applySettings();
   $('version').textContent = `MyNotes ${await api.version()}`;
   const session = await api.session();
-  state.expanded = new Set(session?.expanded ?? ['Eingang']);
+  state.expanded = new Set(session?.expanded ?? [t('Eingang')]);
   state.closed = session?.closed ?? [];
   state.seenBackupHint = !!session?.seenBackupHint;
 
@@ -1367,15 +1396,16 @@ async function start() {
   if (!state.tabs.length) await newTab();
   else activate(state.tabs.some((t) => t.id === session?.active) ? session.active : state.tabs[0].id);
   state.sessionReady = true;
+  if (sessionStorage.getItem('reopen') === 'settings') { sessionStorage.removeItem('reopen'); showSettings(); }
   await pullNotices();
   if (!state.settings.backup && !state.seenBackupHint) {
     state.seenBackupHint = true;
     banner({
-      kind: 'info', text: 'Richte einen zweiten Sicherungsort ein, damit deine Notizen auch einen Plattenausfall überstehen.',
-      action: { label: 'Einstellungen öffnen', run: showSettings },
+      kind: 'info', text: t('Richte einen zweiten Sicherungsort ein, damit deine Notizen auch einen Plattenausfall überstehen.'),
+      action: { label: t('Einstellungen öffnen'), run: showSettings },
     });
     saveSessionSoon();
   }
 }
 
-start().catch((e) => banner({ kind: 'error', sticky: true, text: `Start fehlgeschlagen: ${e.message}` }));
+start().catch((e) => banner({ kind: 'error', sticky: true, text: t('Start fehlgeschlagen: {message}', { message: e.message }) }));

@@ -1,9 +1,11 @@
 // JSON pretty print and minify that only touch whitespace. JSON.stringify(JSON.parse(x)) is deliberately not
 // used: it rounds big numbers, turns 1.0 into 1, drops duplicate keys and reorders numeric keys.
 
+import { t } from './i18n.js';
+
 export class JsonError extends Error {
   constructor(message, line, column) {
-    super(line ? `${message} (Zeile ${line}, Spalte ${column})` : message);
+    super(line ? t('{message} (Zeile {line}, Spalte {column})', { message, line, column }) : message);
     this.line = line;
     this.column = column;
   }
@@ -14,9 +16,9 @@ function validate(src) {
     JSON.parse(src);
   } catch (e) {
     const pos = /position (\d+)/.exec(e.message)?.[1];
-    if (pos === undefined) throw new JsonError('Das ist kein gültiges JSON.');
+    if (pos === undefined) throw new JsonError(t('Das ist kein gültiges JSON.'));
     const before = src.slice(0, Number(pos)).split('\n');
-    throw new JsonError('Das ist kein gültiges JSON.', before.length, before.at(-1).length + 1);
+    throw new JsonError(t('Das ist kein gültiges JSON.'), before.length, before.at(-1).length + 1);
   }
 }
 

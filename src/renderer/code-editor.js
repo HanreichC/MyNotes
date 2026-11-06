@@ -6,22 +6,23 @@ import { goToNextChunk, goToPreviousChunk, MergeView } from '@codemirror/merge';
 import { gotoLine, openSearchPanel, search } from '@codemirror/search';
 import { Compartment, EditorSelection, EditorState, Prec } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
-import { tags as t } from '@lezer/highlight';
+import { tags } from '@lezer/highlight';
 import { basicSetup } from 'codemirror';
+import { language, t } from '../shared/i18n.js';
 import { count } from './ui.js';
 
 const highlight = HighlightStyle.define([
-  { tag: [t.keyword, t.modifier, t.operatorKeyword, t.controlKeyword], color: 'var(--ms-color-system-purple)' },
-  { tag: [t.string, t.special(t.string), t.regexp], color: 'var(--ms-color-system-green)' },
-  { tag: [t.number, t.bool, t.null, t.atom], color: 'var(--ms-color-system-orange)' },
-  { tag: [t.comment, t.lineComment, t.blockComment], color: 'var(--ms-color-label-secondary)', fontStyle: 'italic' },
-  { tag: [t.propertyName, t.attributeName], color: 'var(--ms-color-accent-text)' },
-  { tag: [t.function(t.variableName), t.function(t.propertyName), t.typeName, t.className, t.tagName], color: 'var(--ms-color-system-teal)' },
-  { tag: t.heading, fontWeight: '700' },
-  { tag: t.strong, fontWeight: '700' },
-  { tag: t.emphasis, fontStyle: 'italic' },
-  { tag: t.link, color: 'var(--ms-color-accent-text)', textDecoration: 'underline' },
-  { tag: t.invalid, color: 'var(--ms-color-system-red)' },
+  { tag: [tags.keyword, tags.modifier, tags.operatorKeyword, tags.controlKeyword], color: 'var(--ms-color-system-purple)' },
+  { tag: [tags.string, tags.special(tags.string), tags.regexp], color: 'var(--ms-color-system-green)' },
+  { tag: [tags.number, tags.bool, tags.null, tags.atom], color: 'var(--ms-color-system-orange)' },
+  { tag: [tags.comment, tags.lineComment, tags.blockComment], color: 'var(--ms-color-label-secondary)', fontStyle: 'italic' },
+  { tag: [tags.propertyName, tags.attributeName], color: 'var(--ms-color-accent-text)' },
+  { tag: [tags.function(tags.variableName), tags.function(tags.propertyName), tags.typeName, tags.className, tags.tagName], color: 'var(--ms-color-system-teal)' },
+  { tag: tags.heading, fontWeight: '700' },
+  { tag: tags.strong, fontWeight: '700' },
+  { tag: tags.emphasis, fontStyle: 'italic' },
+  { tag: tags.link, color: 'var(--ms-color-accent-text)', textDecoration: 'underline' },
+  { tag: tags.invalid, color: 'var(--ms-color-system-red)' },
 ]);
 
 const theme = EditorView.theme({
@@ -51,7 +52,8 @@ const theme = EditorView.theme({
   '.cm-tooltip': { backgroundColor: 'var(--ms-color-glass-opaque-top)', border: '1px solid var(--ms-color-glass-popup-border)', borderRadius: 'var(--ms-radius-control)' },
 });
 
-const german = EditorState.phrases.of({
+// CodeMirror speaks English by itself.
+const german = language() === 'en' ? [] : EditorState.phrases.of({
   Find: 'Suchen', Replace: 'Ersetzen', next: 'Weiter', previous: 'Zurück', all: 'Alle', replace: 'Ersetzen', 'replace all': 'Alle ersetzen',
   'match case': 'Groß/klein', regexp: 'Regex', 'by word': 'Ganze Wörter', close: 'Schließen', 'current match': 'aktueller Treffer',
   'on line': 'in Zeile', 'replaced match on line $': 'Treffer in Zeile $ ersetzt', 'replaced $ matches': '$ Treffer ersetzt',
@@ -68,7 +70,7 @@ function changeLines(view, fn) {
   view.dispatch({ changes: { from, to, insert: next }, userEvent: 'input' });
 }
 
-const collator = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
+const collator = new Intl.Collator('de', { numeric: true, sensitivity: 'base' }); // the same order in both languages
 
 export const lineCommands = {
   sortAsc: (lines) => [...lines].sort(collator.compare),
@@ -133,7 +135,7 @@ function codeSetup({ wrap, onChange, onCursor, onPaste }) {
         if (u.docChanged || u.selectionSet) onCursor();
         if (u.transactions.some((tr) => tr.isUserEvent('input.paste'))) onPaste();
       }),
-      EditorView.contentAttributes.of({ 'aria-label': 'Code-Editor' }),
+      EditorView.contentAttributes.of({ 'aria-label': t('Code-Editor') }),
     ],
   };
 }
@@ -190,7 +192,7 @@ function editorApi(view, { wrapping, language }, name, destroy) {
       const head = view.state.selection.main.head;
       const line = view.state.doc.lineAt(head);
       const cursors = view.state.selection.ranges.length;
-      return `Z ${line.number}, S ${head - line.from + 1}${cursors > 1 ? ` · ${cursors} Cursor` : ''} · ${count(view.state.doc.lines, 'Zeile', 'Zeilen')}`;
+      return `${t('Z {line}, S {column}', { line: line.number, column: head - line.from + 1 })}${cursors > 1 ? ` · ${t('{n} Cursor', { n: cursors })}` : ''} · ${count(view.state.doc.lines, t('Zeile'), t('Zeilen'))}`;
     },
     /** Applies fn to the selection, or to the whole text if nothing is selected. */
     transform(fn) {

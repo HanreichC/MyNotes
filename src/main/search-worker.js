@@ -3,9 +3,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parentPort, workerData } from 'node:worker_threads';
+import { setLanguage, t } from '../shared/i18n.js';
 import { decode } from '../shared/text.js';
 
-const { vault, query, regex, caseSensitive } = workerData;
+const { vault, query, regex, caseSensitive, language } = workerData;
+setLanguage(language);
 const MAX_FILE = 5 * 1024 * 1024;
 const MAX_RESULTS = 500;
 
@@ -34,5 +36,5 @@ try {
   await walk('');
   parentPort.postMessage({ results });
 } catch (e) {
-  parentPort.postMessage({ error: e instanceof SyntaxError ? 'Der reguläre Ausdruck ist ungültig.' : e.message });
+  parentPort.postMessage({ error: e instanceof SyntaxError ? t('Der reguläre Ausdruck ist ungültig.') : e.message });
 }

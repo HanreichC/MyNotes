@@ -12,6 +12,7 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { StarterKit } from '@tiptap/starter-kit';
 import { common, createLowlight } from 'lowlight';
 import { Marked } from 'marked';
+import { t } from '../shared/i18n.js';
 import { isJson } from '../shared/json.js';
 import { icon } from './icons.js';
 import { count, el, menu, promptDialog } from './ui.js';
@@ -141,14 +142,14 @@ const FindPlugin = Extension.create({
 function createFindBar(host, editor) {
   const view = () => editor.view;
   const state = () => findKey.getState(editor.state);
-  const query = el('input', { class: 'ms-field', placeholder: 'Suchen', 'aria-label': 'Suchen' });
-  const replacement = el('input', { class: 'ms-field', placeholder: 'Ersetzen', 'aria-label': 'Ersetzen' });
+  const query = el('input', { class: 'ms-field', placeholder: t('Suchen'), 'aria-label': t('Suchen') });
+  const replacement = el('input', { class: 'ms-field', placeholder: t('Ersetzen'), 'aria-label': t('Ersetzen') });
   const regex = el('input', { type: 'checkbox', class: 'ms-checkbox' });
   const cased = el('input', { type: 'checkbox', class: 'ms-checkbox' });
   const count = el('span', { class: 'ms-caption ms-secondary ms-num find-count', role: 'status' });
   const paint = () => {
     const { matches, index } = state();
-    count.textContent = matches.length ? `${index + 1} von ${matches.length}` : query.value ? 'Kein Treffer' : '';
+    count.textContent = matches.length ? t('{n} von {total}', { n: index + 1, total: matches.length }) : query.value ? t('Kein Treffer') : '';
   };
   const run = () => {
     view().dispatch(view().state.tr.setMeta(findKey, { query: query.value, opts: { regex: regex.checked, caseSensitive: cased.checked }, index: 0 }));
@@ -180,14 +181,14 @@ function createFindBar(host, editor) {
   };
   const bar = el('div', { class: 'find-bar', hidden: true },
     query, replacement,
-    el('button', { class: 'ms-button', onclick: () => jump(-1) }, 'Zurück'),
-    el('button', { class: 'ms-button', onclick: () => jump(1) }, 'Weiter'),
-    el('button', { class: 'ms-button', onclick: replaceOne }, 'Ersetzen'),
-    el('button', { class: 'ms-button', onclick: replaceAll }, 'Alle ersetzen'),
+    el('button', { class: 'ms-button', onclick: () => jump(-1) }, t('Zurück')),
+    el('button', { class: 'ms-button', onclick: () => jump(1) }, t('Weiter')),
+    el('button', { class: 'ms-button', onclick: replaceOne }, t('Ersetzen')),
+    el('button', { class: 'ms-button', onclick: replaceAll }, t('Alle ersetzen')),
     el('label', { class: 'ms-check-label ms-callout' }, regex, 'Regex'),
-    el('label', { class: 'ms-check-label ms-callout' }, cased, 'Groß/klein'),
+    el('label', { class: 'ms-check-label ms-callout' }, cased, t('Groß/klein')),
     count,
-    el('button', { class: 'round-btn round-btn--s', 'aria-label': 'Suche schließen', title: 'Suche schließen', html: icon('close'), onclick: () => hide() }));
+    el('button', { class: 'round-btn round-btn--s', 'aria-label': t('Suche schließen'), title: t('Suche schließen'), html: icon('close'), onclick: () => hide() }));
   const hide = () => {
     bar.hidden = true;
     view().dispatch(view().state.tr.setMeta(findKey, { query: '', matches: [], index: 0 }));
@@ -216,21 +217,21 @@ function createFindBar(host, editor) {
 // ---------------------------------------------------------------- slash menu
 
 const SLASH = [
-  { label: 'Überschrift 1', keys: 'h1 titel', run: (c) => c.toggleHeading({ level: 1 }) },
-  { label: 'Überschrift 2', keys: 'h2', run: (c) => c.toggleHeading({ level: 2 }) },
-  { label: 'Überschrift 3', keys: 'h3', run: (c) => c.toggleHeading({ level: 3 }) },
-  { label: 'Liste', keys: 'aufzählung bullet', run: (c) => c.toggleBulletList() },
-  { label: 'Nummerierte Liste', keys: 'zahlen ordered', run: (c) => c.toggleOrderedList() },
-  { label: 'Checkliste', keys: 'aufgabe todo task', run: (c) => c.toggleTaskList() },
-  { label: 'Zitat', keys: 'quote', run: (c) => c.toggleBlockquote() },
-  { label: 'Code-Block', keys: 'code', run: (c) => c.toggleCodeBlock() },
-  { label: 'JSON-Block', keys: 'json', run: (c) => c.toggleCodeBlock({ language: 'json' }) },
-  { label: 'Tabelle', keys: 'table', run: (c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }) },
-  { label: 'Trennlinie', keys: 'hr linie', run: (c) => c.setHorizontalRule() },
+  { label: t('Überschrift 1'), keys: 'h1 titel', run: (c) => c.toggleHeading({ level: 1 }) },
+  { label: t('Überschrift 2'), keys: 'h2', run: (c) => c.toggleHeading({ level: 2 }) },
+  { label: t('Überschrift 3'), keys: 'h3', run: (c) => c.toggleHeading({ level: 3 }) },
+  { label: t('Liste'), keys: 'aufzählung bullet', run: (c) => c.toggleBulletList() },
+  { label: t('Nummerierte Liste'), keys: 'zahlen ordered', run: (c) => c.toggleOrderedList() },
+  { label: t('Checkliste'), keys: 'aufgabe todo task', run: (c) => c.toggleTaskList() },
+  { label: t('Zitat'), keys: 'quote', run: (c) => c.toggleBlockquote() },
+  { label: t('Code-Block'), keys: 'code', run: (c) => c.toggleCodeBlock() },
+  { label: t('JSON-Block'), keys: 'json', run: (c) => c.toggleCodeBlock({ language: 'json' }) },
+  { label: t('Tabelle'), keys: 'table', run: (c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }) },
+  { label: t('Trennlinie'), keys: 'hr linie', run: (c) => c.setHorizontalRule() },
 ];
 
 function createSlashMenu(editor) {
-  const box = el('div', { class: 'ms-glass ms-glass--text ms-glass--thick ms-menu slash-menu', role: 'listbox', 'aria-label': 'Block einfügen', hidden: true });
+  const box = el('div', { class: 'ms-glass ms-glass--text ms-glass--thick ms-menu slash-menu', role: 'listbox', 'aria-label': t('Block einfügen'), hidden: true });
   document.getElementById('layer').append(box);
   let items = [];
   let active = 0;
@@ -292,20 +293,20 @@ function createToolbar(editor, onLink) {
   const textBtn = (text, label, run) => el('button', { class: 'tool-btn tool-btn--text', title: label, onmousedown: (e) => e.preventDefault(), onclick: run }, text);
   const c = () => editor.chain().focus();
   const marks = [
-    button('bold', 'Fett', () => c().toggleBold().run(), () => editor.isActive('bold')),
-    button('italic', 'Kursiv', () => c().toggleItalic().run(), () => editor.isActive('italic')),
-    button('strike', 'Durchgestrichen', () => c().toggleStrike().run(), () => editor.isActive('strike')),
-    button('code', 'Inline-Code', () => c().toggleCode().run(), () => editor.isActive('code')),
-    button('link', 'Link', onLink, () => editor.isActive('link')),
+    button('bold', t('Fett'), () => c().toggleBold().run(), () => editor.isActive('bold')),
+    button('italic', t('Kursiv'), () => c().toggleItalic().run(), () => editor.isActive('italic')),
+    button('strike', t('Durchgestrichen'), () => c().toggleStrike().run(), () => editor.isActive('strike')),
+    button('code', t('Inline-Code'), () => c().toggleCode().run(), () => editor.isActive('code')),
+    button('link', t('Link'), onLink, () => editor.isActive('link')),
   ];
   const table = [
-    textBtn('Zeile +', 'Zeile einfügen', () => c().addRowAfter().run()),
-    textBtn('Zeile −', 'Zeile löschen', () => c().deleteRow().run()),
-    textBtn('Spalte +', 'Spalte einfügen', () => c().addColumnAfter().run()),
-    textBtn('Spalte −', 'Spalte löschen', () => c().deleteColumn().run()),
-    textBtn('Tabelle löschen', 'Tabelle löschen', () => c().deleteTable().run()),
+    textBtn(t('Zeile +'), t('Zeile einfügen'), () => c().addRowAfter().run()),
+    textBtn(t('Zeile −'), t('Zeile löschen'), () => c().deleteRow().run()),
+    textBtn(t('Spalte +'), t('Spalte einfügen'), () => c().addColumnAfter().run()),
+    textBtn(t('Spalte −'), t('Spalte löschen'), () => c().deleteColumn().run()),
+    textBtn(t('Tabelle löschen'), t('Tabelle löschen'), () => c().deleteTable().run()),
   ];
-  const box = el('div', { class: 'ms-glass ms-glass--capsule ms-glass--thin toolbar', role: 'toolbar', 'aria-label': 'Formatierung', hidden: true });
+  const box = el('div', { class: 'ms-glass ms-glass--capsule ms-glass--thin toolbar', role: 'toolbar', 'aria-label': t('Formatierung'), hidden: true });
   document.getElementById('layer').append(box);
   const update = () => {
     const { from, to, empty } = editor.state.selection;
@@ -369,7 +370,7 @@ export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmp
       TabKey,
     ],
     editorProps: {
-      attributes: { class: 'prose', 'aria-label': 'Notiz', role: 'textbox', 'aria-multiline': 'true' },
+      attributes: { class: 'prose', 'aria-label': t('Notiz'), role: 'textbox', 'aria-multiline': 'true' },
       handleKeyDown: (_view, e) => {
         if (slash?.key(e)) { e.preventDefault(); return true; }
         if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'v') { pasteAsCode = true; }
@@ -422,7 +423,7 @@ export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmp
 
   async function editLink() {
     const current = editor.getAttributes('link').href ?? '';
-    const href = await promptDialog({ title: 'Link', value: current, placeholder: 'https://…', action: 'Übernehmen' });
+    const href = await promptDialog({ title: t('Link'), value: current, placeholder: 'https://…', action: t('Übernehmen') });
     if (href === null) { editor.chain().focus().extendMarkRange('link').unsetLink().run(); return; }
     editor.chain().focus().extendMarkRange('link').setLink({ href }).run();
   }
@@ -443,7 +444,7 @@ export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmp
       const { doc } = editor.state;
       const text = doc.textBetween(0, doc.content.size, '\n', (leaf) => (leaf.type.name === 'hardBreak' ? '\n' : ''));
       // trimEnd: the editor keeps an empty paragraph after a list or table for the cursor, and nobody counts that as a line.
-      return `${count(text.trim().split(/\s+/).filter(Boolean).length, 'Wort', 'Wörter')} · ${count(text.trimEnd().split('\n').length, 'Zeile', 'Zeilen')}`;
+      return `${count(text.trim().split(/\s+/).filter(Boolean).length, t('Wort'), t('Wörter'))} · ${count(text.trimEnd().split('\n').length, t('Zeile'), t('Zeilen'))}`;
     },
     /** JSON tools work on the selection or the code block under the cursor. */
     transform(fn) {
@@ -455,7 +456,7 @@ export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmp
         editor.view.dispatch(state.tr.replaceWith(start, start + $from.parent.content.size, state.schema.text(out)));
         return;
       }
-      if (empty) throw new Error('Markiere den JSON-Text oder setze den Cursor in einen Code-Block.');
+      if (empty) throw new Error(t('Markiere den JSON-Text oder setze den Cursor in einen Code-Block.'));
       editor.view.dispatch(state.tr.insertText(fn(state.doc.textBetween(from, to, '\n')), from, to));
     },
     find: (initial) => findBar.open(initial),

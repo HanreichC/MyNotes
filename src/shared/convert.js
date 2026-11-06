@@ -1,6 +1,7 @@
 // Turning a note into another format. Nothing here touches a file: it takes bytes and gives back the name, type and bytes of a new note.
 // Numbers are copied as text wherever JSON is involved, as in json.js: 12345678901234567890 and 1.0 stay what they are.
 import { Marked } from 'marked';
+import { t } from './i18n.js';
 import { prettyJson } from './json.js';
 import { decode } from './text.js';
 
@@ -134,29 +135,29 @@ export function conversionsFor(fileName, bytes, indent = '  ') {
   const add = (label, make) => out.push({ label, make });
   const asText = (suffix, newExt, content) => ({ name: suffix ? `${stem} (${suffix})` : stem, ext: newExt, bytes: utf8(content) });
   /** Decoded bytes may be anything. decode() would read most of them as Windows-1252, so only real UTF-8 counts as text here. */
-  const decoded = (data) => ({ name: `${stem} (dekodiert)`, ext: isUtf8(data) ? '.txt' : '.bin', bytes: data });
+  const decoded = (data) => ({ name: `${stem} (${t('dekodiert')})`, ext: isUtf8(data) ? '.txt' : '.bin', bytes: data });
 
   if (text !== null && text.trim()) {
     let json = false;
     try { JSON.parse(text); json = true; } catch { /* not JSON */ }
     if (json) {
       const csv = jsonToCsv(text);
-      if (csv) add('Zu CSV', () => asText('', '.csv', csv));
+      if (csv) add(t('Zu CSV'), () => asText('', '.csv', csv));
     } else {
-      add('Zu JSON', () => asText('', '.json', textToJson(text, indent)));
+      add(t('Zu JSON'), () => asText('', '.json', textToJson(text, indent)));
     }
-    if (ext === '.md' || ext === '.markdown') add('Zu HTML', () => asText('', '.html', markdownToHtml(text, stem)));
+    if (ext === '.md' || ext === '.markdown') add(t('Zu HTML'), () => asText('', '.html', markdownToHtml(text, stem)));
   }
-  if (bytes.length) add('Zu Base64', () => asText('Base64', '.txt', toBase64(bytes)));
-  if (bytes.length) add('Zu Hex', () => asText('Hex', '.txt', toHex(bytes)));
+  if (bytes.length) add(t('Zu Base64'), () => asText('Base64', '.txt', toBase64(bytes)));
+  if (bytes.length) add(t('Zu Hex'), () => asText('Hex', '.txt', toHex(bytes)));
   if (text !== null && text.trim()) {
     const base64 = fromBase64(text);
-    if (meantAsData(base64, text)) add('Aus Base64', () => decoded(base64));
+    if (meantAsData(base64, text)) add(t('Aus Base64'), () => decoded(base64));
     const hex = fromHex(text);
-    if (meantAsData(hex, text)) add('Aus Hex', () => decoded(hex));
-    add('URL-kodieren', () => asText('URL', '.txt', encodeURIComponent(text.trim())));
+    if (meantAsData(hex, text)) add(t('Aus Hex'), () => decoded(hex));
+    add(t('URL-kodieren'), () => asText('URL', '.txt', encodeURIComponent(text.trim())));
     const url = /%[0-9a-fA-F]{2}/.test(text) ? safeUrlDecode(text.trim()) : null;
-    if (url !== null) add('URL-dekodieren', () => asText('dekodiert', '.txt', url));
+    if (url !== null) add(t('URL-dekodieren'), () => asText(t('dekodiert'), '.txt', url));
   }
   return out;
 }

@@ -21,5 +21,6 @@ api.onFlush = (fn) => ipcRenderer.on('flush', async () => {
 });
 api.pathOfFile = (file) => webUtils.getPathForFile(file);
 api.platform = process.platform;
+api.language = ipcRenderer.sendSync('language');
 
 contextBridge.exposeInMainWorld('api', api);

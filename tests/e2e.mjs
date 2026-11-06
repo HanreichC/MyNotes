@@ -20,6 +20,7 @@ delete env.ELECTRON_RUN_AS_NODE; // set by VS Code's extension host; Electron wo
 async function launch() {
   const exe = process.env.MYNOTES_EXE; // the packaged app instead of the source tree
   const args = exe ? [] : ['.'];
+  args.push('--lang=de'); // the system language, so 'System' means German on any machine
   if (process.platform === 'linux' && (process.env.CI || process.getuid?.() === 0)) args.push('--no-sandbox');
   const app = await electron.launch({ args, env, timeout: 30_000, ...(exe ? { executablePath: exe } : {}) });
   const page = await app.firstWindow();
@@ -869,6 +870,32 @@ try {
     await shot(page, name);
   }
   step('settings and display modes');
+
+  // ---------- the language: the window loads again in it, every tab comes back, and the settings are open again
+  await page.evaluate(() => { for (const a of ['theme', 'contrast', 'transparency']) delete document.documentElement.dataset[a]; });
+  const tabCount = (await tabNames(page)).length;
+  const pickLanguage = async (row, choice, lang, title) => {
+    await page.keyboard.press('Control+,');
+    await page.waitForSelector('.sheet');
+    await page.click(`.ms-row:has-text("${row}") .ms-popup`);
+    await page.click(`.float-menu button:has-text("${choice}")`);
+    await until(() => page.evaluate(([l, h]) => document.documentElement.lang === l && document.querySelector('.sheet h2')?.textContent === h, [lang, title]), `the window in ${lang}`);
+  };
+  await pickLanguage('Sprache', 'English', 'en', 'Settings');
+  await shot(page, '5-settings-en');
+  assert.equal(JSON.parse(await fs.readFile(path.join(data, 'settings.json'), 'utf8')).language, 'en');
+  assert.equal(await page.textContent('#btn-search'), 'Search All Notes');
+  assert.equal(await page.getAttribute('#tab-new', 'aria-label'), 'New Tab');
+  assert.equal((await tabNames(page)).length, tabCount, 'every tab is back');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+Shift+p');
+  await page.waitForSelector('.picker-hint');
+  assert.ok((await page.$$eval('.picker-hint', (n) => n.map((x) => x.textContent))).includes('Ctrl+Shift+F'), 'keys named in English');
+  await page.keyboard.press('Escape');
+  await pickLanguage('Language', 'System', 'de', 'Einstellungen');
+  assert.equal(await page.textContent('#btn-search'), 'In allen Notizen suchen');
+  await page.keyboard.press('Escape');
+  step('language: English and back to the system language, nothing lost on the way');
 
   // ---------- another window on top must not slow saving down: Chromium would hold the save timer back to about once a second.
   // Last on purpose: hiding the window must not get to disturb what comes after it.

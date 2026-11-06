@@ -16,6 +16,7 @@ const paths = {
   contrast: '<rect x="3.5" y="3.5" width="17" height="17" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M20.5 7.5v9a4 4 0 0 1-4 4h-9z" fill="currentColor"/>',
   transparency: stroke('<rect x="3.5" y="3.5" width="11" height="11" rx="2.5"/><path d="M14.5 9.5h3.5a2.5 2.5 0 0 1 2.5 2.5v6a2.5 2.5 0 0 1-2.5 2.5h-6a2.5 2.5 0 0 1-2.5-2.5v-3.5" stroke-dasharray="2 2.6"/>'),
   motion: stroke('<circle cx="15" cy="12" r="5.5"/><path d="M3 8.5h4.5M2.5 12h4M3 15.5h4.5"/>'),
+  globe: stroke('<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.4 2.5 3.6 5.5 3.6 9s-1.2 6.5-3.6 9c-2.4-2.5-3.6-5.5-3.6-9s1.2-6.5 3.6-9z"/>'),
   theme: stroke('<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>'),
   glass: stroke('<path d="M12 3.2c3.3 4 6.2 7.3 6.2 10.9a6.2 6.2 0 0 1-12.4 0c0-3.6 2.9-6.9 6.2-10.9z"/><path d="M9.2 14.4a2.9 2.9 0 0 0 2.4 2.7"/>'),
   search: stroke('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20.5 20.5"/>'),

@@ -21,7 +21,7 @@ The tabs of Notepad++ and the structure of a wiki, with a Markdown editor like N
 </div>
 
 > [!NOTE]
-> MyNotes is a personal project in active development. It is built on Windows 11 and tested there and in an Arch Linux container, but it has not run on a real CachyOS desktop yet. The interface is in German only for now.
+> MyNotes is a personal project in active development. It is built on Windows 11 and tested there and in an Arch Linux container, but it has not run on a real CachyOS desktop yet. The interface is in English or German.
 
 > [!WARNING]
 > **This project is vibe-coded.** The code was written with an AI coding assistant. Expect rough edges, and read the code before you rely on it. Set up a second backup location before you trust it with anything you can't lose.
@@ -36,12 +36,12 @@ Contents: [Saving](#close-it-kill-it-its-still-there) · [Tabs](#open-a-tab-star
 
 MyNotes has no save button and no "Do you want to save?" dialog. Close the window, restart the computer or kill the process, and every tab comes back with its text, its order and its cursor.
 
-Each open document has its own journal on the local disk. Within 150 ms of a keystroke (1 s once a text is over 1 MB) the change is written there and flushed with `fsync`, and only then does the status bar say **Gesichert** (saved). Notepad++ backs up every 7 seconds by default. After 1.5 s without typing, or after 10 s at the latest, the note goes to your notes folder. It is written to a temporary file first and then renamed over the old one, so a crash can't leave half a note behind.
+Each open document has its own journal on the local disk. Within 150 ms of a keystroke (1 s once a text is over 1 MB) the change is written there and flushed with `fsync`, and only then does the status bar say **Secured**. Notepad++ backs up every 7 seconds by default. After 1.5 s without typing, or after 10 s at the latest, the note goes to your notes folder. It is written to a temporary file first and then renamed over the old one, so a crash can't leave half a note behind.
 
 Three more things catch what the journal can't:
 
-- The history keeps the state before your first change, a version every 5 minutes and one when you close the tab. Nothing in it is deleted automatically. Right-click a note or its tab and choose `Verlauf anzeigen …` to read old versions and bring one back. Your current text goes into the history first, so that step can be undone too.
-- Deleting moves a note to `.trash` in your notes folder. `Papierkorb` in the sidebar lists what's there and restores it to where it was. Only emptying the trash deletes for real, along with the versions of those notes, and you have to confirm that.
+- The history keeps the state before your first change, a version every 5 minutes and one when you close the tab. Nothing in it is deleted automatically. Right-click a note or its tab and choose `Show History …` to read old versions and bring one back. Your current text goes into the history first, so that step can be undone too.
+- Deleting moves a note to `.trash` in your notes folder. `Trash` in the sidebar lists what's there and restores it to where it was. Only emptying the trash deletes for real, along with the versions of those notes, and you have to confirm that.
 - A second backup location in the settings, such as another drive or a NAS, gets a copy of your notes and history and follows what you do in the app: rename, move, delete, restore or empty the trash, and the same happens there, even if it was unplugged at the time. It never deletes a file only because that file is missing from the notes folder, so a dead drive can't wipe your backup. A note you delete outside the app while it isn't open therefore stays in the backup.
 
 Your notes are plain files. You can open them with anything, or sync them with Nextcloud, OneDrive or Git.
@@ -50,13 +50,13 @@ Your notes are plain files. You can open them with anything, or sync them with N
 
 ## Open a tab. Start typing.
 
-Press `Ctrl+T` and type, the same as in Notepad++. With the first character the tab becomes a real file in the folder `Eingang` (inbox), named after the start of its first line (40 characters at most, cut at a word). Right-click the `+` for a new JSON file, or to open a file, a note or a closed tab instead. Rename it or drag it into a folder and the name stays yours from then on. A tab you never typed in leaves nothing behind, and a new note you erased again goes to the trash when you close it.
+Press `Ctrl+T` and type, the same as in Notepad++. With the first character the tab becomes a real file in the folder `Inbox` (`Eingang` in German), named after the start of its first line (40 characters at most, cut at a word). Right-click the `+` for a new JSON file, or to open a file, a note or a closed tab instead. Rename it or drag it into a folder and the name stays yours from then on. A tab you never typed in leaves nothing behind, and a new note you erased again goes to the trash when you close it.
 
-Closing a tab never asks anything and keeps the note, and `Ctrl+Shift+T` brings it back. A middle click closes a tab too, and its right-click menu closes all the others. Drag tabs to reorder them. To get rid of a note, right-click its tab or its entry in the tree and choose `In den Papierkorb legen`.
+Closing a tab never asks anything and keeps the note, and `Ctrl+Shift+T` brings it back. A middle click closes a tab too, and its right-click menu closes all the others. Drag tabs to reorder them. To get rid of a note, right-click its tab or its entry in the tree and choose `Move to Trash`.
 
 The status bar shows whether your text is saved, the words and lines of a note, or the line, column and line count in the code editor. In the live editor, a paragraph or list item counts as one line, so the source view of the same note can show more.
 
-To see two notes at once, drag a tab onto the editor and drop it on the left or right half, or choose `Rechts daneben anzeigen` in the tab's menu. Both stay editable, and the arrangement comes back after a restart. The `×` above a side hides it and leaves its tab open.
+To see two notes at once, drag a tab onto the editor and drop it on the left or right half, or choose `Show on the Right` in the tab's menu. Both stay editable, and the arrangement comes back after a restart. The `×` above a side hides it and leaves its tab open.
 
 <div align="center">
 
@@ -64,7 +64,7 @@ To see two notes at once, drag a tab onto the editor and drop it on the left or 
 
 </div>
 
-To compare them as in WinMerge, press **Vergleichen** in the pill above the two (`Ctrl+Alt+D`). Equal lines line up, both sides scroll together, changed lines and words are marked, and `Alt+↓` and `Alt+↑` jump between the differences. You can keep typing on both sides. Markdown shows its source while you compare and goes back to the live view afterwards. It stays off until you turn it on.
+To compare them as in WinMerge, press **Compare** in the pill above the two (`Ctrl+Alt+D`). Equal lines line up, both sides scroll together, changed lines and words are marked, and `Alt+↓` and `Alt+↑` jump between the differences. You can keep typing on both sides. Markdown shows its source while you compare and goes back to the live view afterwards. It stays off until you turn it on.
 
 <br>
 
@@ -82,7 +82,7 @@ Right-click the tree to create a note or folder in that spot, and an entry to re
 
 </div>
 
-Right-click a note or its tab and choose `Konvertieren …` to turn it into something else. The menu only offers what works for that file: JSON to CSV and CSV to JSON, text to JSON, Markdown to HTML, Base64 and hex in both directions, URL encoding in both directions. The result is a new note right below the original, which stays as it is, and it opens straight away. As with formatting, big numbers and `1.0` stay intact. CSV turns into JSON with numbers and `true`/`false` as such, and `00123` stays a string so it keeps its zeros. Text without a table or `key: value` lines becomes a list with one entry per line. Files up to 32 MB can be converted. Converting fixes the order of that folder, so notes you create there later go to the end instead of sorting by name.
+Right-click a note or its tab and choose `Convert …` to turn it into something else. The menu only offers what works for that file: JSON to CSV and CSV to JSON, text to JSON, Markdown to HTML, Base64 and hex in both directions, URL encoding in both directions. The result is a new note right below the original, which stays as it is, and it opens straight away. As with formatting, big numbers and `1.0` stay intact. CSV turns into JSON with numbers and `true`/`false` as such, and `00123` stays a string so it keeps its zeros. Text without a table or `key: value` lines becomes a list with one entry per line. Files up to 32 MB can be converted. Converting fixes the order of that folder, so notes you create there later go to the end instead of sorting by name.
 
 You choose the notes folder in the settings. Switching copies everything to the new folder and checks every file against a checksum, and the old folder stays as it is.
 
@@ -119,7 +119,7 @@ Type `# ` and you have a heading. `**bold**` turns bold, `~~this~~` strikes thro
 
 Paste JSON and it's formatted. In an empty note it turns the note into a `.json` file, in a note with text it becomes a code block, and in a `.json` file the whole file is formatted if the result is valid JSON. There, `Ctrl+Z` takes only the formatting back and keeps what you pasted. `Ctrl+Shift+V` pastes into a code block exactly as it is.
 
-Opening a file never formats it, so a layout someone arranged by hand stays. To format by hand, press `Ctrl+Alt+J` or `Formatieren` in the status bar of a `.json` file. The keys also work on the selection or the code block under the cursor, and `Ctrl+Alt+Shift+J` compresses it again.
+Opening a file never formats it, so a layout someone arranged by hand stays. To format by hand, press `Ctrl+Alt+J` or `Format` in the status bar of a `.json` file. The keys also work on the selection or the code block under the cursor, and `Ctrl+Alt+Shift+J` compresses it again.
 
 Most formatters parse the JSON and print it back, which rounds `12345678901234567890`, turns `1.0` into `1` and drops duplicate keys. This one only touches whitespace. If the JSON is broken it changes nothing and tells you the line and column.
 
@@ -129,7 +129,7 @@ Most formatters parse the JSON and print it back, which rounds `1234567890123456
 
 Everything that isn't Markdown opens in the code editor, built on CodeMirror, which leaves your text exactly as it is. Syntax highlighting covers 143 languages, with line numbers and folding. Encoding and line endings are kept, and you can change them in the status bar (UTF-8, UTF-16, Windows-1252, LF, CRLF, CR). Open any file with `Ctrl+O`, by drag and drop or from the command line.
 
-The main shortcuts are below. `F1` or `Tastenkürzel` in the sidebar shows all of them in the app.
+The main shortcuts are below. `F1` or `Keyboard Shortcuts` in the sidebar shows all of them in the app.
 
 | Keys | Does |
 |------|------|
@@ -166,7 +166,7 @@ The look follows [MyStyle](https://github.com/HanreichC/MyStyle), like MyPods an
 
 If transparency effects are off in Windows, MyNotes follows and shows a matte surface instead.
 
-The settings (`Ctrl+,`) also hold the text size, word wrap, the JSON indent (2 spaces, 4 spaces or a tab) and full width, which starts notes at the left instead of the middle. A double click on the title row maximizes the window.
+The settings (`Ctrl+,`) also hold the language (English, German, or the system's), the text size, word wrap, the JSON indent (2 spaces, 4 spaces or a tab) and full width, which starts notes at the left instead of the middle. A double click on the title row maximizes the window.
 
 <br>
 
@@ -179,7 +179,7 @@ The settings (`Ctrl+,`) also hold the text size, word wrap, the JSON indent (2 s
 | The notes folder is gone (USB stick, network, full disk) | You keep typing into the journal, the status bar warns you and MyNotes retries every 5 s. It never creates a replacement folder where the stick used to be. |
 | A file is locked by a virus scanner or OneDrive | MyNotes retries with growing pauses, then treats it like a missing folder. |
 | A file changed outside the app, your tab is unchanged | The tab reloads. The previous state stays in the history. |
-| A file changed outside the app, your tab has edits | Your tab keeps its text and the other version lands next to it as `Name (extern geändert 2026-11-04 1532).md`. |
+| A file changed outside the app, your tab has edits | Your tab keeps its text and the other version lands next to it as `Name (changed outside 2026-11-04 1532).md`. |
 | A note was deleted outside the app | If it was open, its last state goes to the trash. |
 | The backup location is gone | The status bar says so and your notes carry on. Renames and deletes wait and are caught up later, even after a restart. |
 | You type a character the file's encoding can't hold | The file switches to UTF-8, keeps the character and tells you. |
@@ -192,7 +192,7 @@ The settings (`Ctrl+,`) also hold the text size, word wrap, the JSON indent (2 s
 | | |
 |---|---|
 | Platform | CachyOS and Windows 11 |
-| Interface | MyStyle with glass, light, dark or automatic, German |
+| Interface | MyStyle with glass, light, dark or automatic, English or German |
 | Live editor | TipTap (ProseMirror), Markdown on disk |
 | Code editor | CodeMirror 6, 143 languages |
 | Saving | Journal with `fsync` within 150 ms, atomic write to the folder after 1.5 s |
@@ -251,7 +251,7 @@ For Linux there is an Arch dev container in [`.devcontainer/`](.devcontainer), s
 ## Tested. Again and again.
 
 ```sh
-npm test      # storage core, kill loop, JSON formatter, conversions, encodings
+npm test      # storage core, kill loop, JSON formatter, conversions, encodings, translations
 npm run e2e   # the real app in a real window
 ```
 
@@ -267,7 +267,6 @@ npm run e2e   # the real app in a real window
 - CachyOS on a desktop with Wayland and a real GPU is untested, only Arch under Xvfb so far. Resizing the window with a real mouse is untested too: Windows reports the edges correctly, but nobody has dragged one yet.
 - Text typed in the first few milliseconds after `Ctrl+T`, before the new tab exists, lands in the previous tab.
 - The glass has blur, tint and rim, but not the refracting lens of MyPods and MyCAD, which comes from their Qt shader.
-- The interface is German only.
 - Macros, hex view, plugins and links between notes aren't implemented. They come if they turn out to be missed. Comparing shows differences but can't copy a change to the other side with one click yet.
 - Sync between computers isn't built in. Use Nextcloud, OneDrive or Git on the notes folder; conflicts end up as copies next to the note.
 - The history of a note only grows until the note is deleted for good. Notes are small, but nothing thins it out yet.

@@ -1,4 +1,5 @@
 // Small building blocks for what floats above the window: menus, alerts, prompts, the picker, sheets.
+import { t } from '../shared/i18n.js';
 import { icon } from './icons.js';
 
 const layer = () => document.getElementById('layer');
@@ -98,7 +99,7 @@ export function alertDialog({ title, text, actions }) {
   });
 }
 
-export function promptDialog({ title, value = '', placeholder = '', action = 'Fertig' }) {
+export function promptDialog({ title, value = '', placeholder = '', action = t('Fertig') }) {
   return new Promise((resolve) => {
     const box = el('form', { class: 'ms-glass ms-glass--text ms-glass--thick ms-alert', role: 'dialog', 'aria-modal': 'true', 'aria-label': title });
     const { close } = overlay(box, { scrim: true, onClose: (v) => resolve(v ?? null) });
@@ -106,7 +107,7 @@ export function promptDialog({ title, value = '', placeholder = '', action = 'Fe
     box.append(
       el('h2', { class: 'ms-alert__title' }, title), input,
       el('div', { class: 'alert-actions' },
-        el('button', { class: 'ms-button', type: 'button', onclick: () => close(null) }, 'Abbrechen'),
+        el('button', { class: 'ms-button', type: 'button', onclick: () => close(null) }, t('Abbrechen')),
         el('button', { class: 'ms-button ms-button--prominent', type: 'submit' }, action)),
     );
     box.addEventListener('submit', (e) => { e.preventDefault(); close(input.value.trim() || null); });
@@ -154,7 +155,7 @@ export function sheet(title, { wide = false } = {}) {
   const box = el('div', { class: `sheet${wide ? ' sheet--wide' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     el('header', { class: 'sheet-head' },
       el('h2', { class: 'ms-headline' }, title),
-      el('button', { class: 'round-btn', 'aria-label': 'Schließen', title: 'Schließen', html: icon('close'), onclick: () => close() })),
+      el('button', { class: 'round-btn', 'aria-label': t('Schließen'), title: t('Schließen'), html: icon('close'), onclick: () => close() })),
     body);
   const { close } = overlay(box, { scrim: true });
   box.querySelector('.round-btn').focus();

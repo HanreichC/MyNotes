@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
+import { language, setLanguage, t } from '../shared/i18n.js';
 import { atomicWrite, checkRel, Store } from './store.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -21,7 +22,7 @@ const settingsFile = path.join(dataDir, 'settings.json');
 const sessionFile = path.join(dataDir, 'session.json');
 const DEFAULTS = {
   vault: process.env.MYNOTES_VAULT ?? path.join(os.homedir(), 'MyNotes'), backup: null, theme: 'auto', contrast: false,
-  transparency: false, motion: false, glass: 0.5, fontSize: 14, wrap: true, fullWidth: false, jsonIndent: 2, sidebarWidth: 232, sidebarHidden: false, bounds: null, maximized: false,
+  transparency: false, motion: false, glass: 0.5, fontSize: 14, wrap: true, fullWidth: false, jsonIndent: 2, sidebarWidth: 232, sidebarHidden: false, bounds: null, maximized: false, language: 'auto',
 };
 
 let settings;
@@ -39,10 +40,14 @@ async function loadSettings() {
     saved = null;
   }
   settings = { ...DEFAULTS, ...saved };
+  applyLanguage();
   // Only the default folder on first start is ever created. A configured folder that is missing may simply be an
   // unplugged drive, and creating it would put notes where they will not be found later.
   if (!saved) await fs.mkdir(settings.vault, { recursive: true });
 }
+
+/** 'auto' follows the system: German for any German locale, English for everything else. */
+const applyLanguage = () => setLanguage(settings.language === 'auto' ? app.getLocale() : settings.language);
 
 const saveSettings = () => atomicWrite(settingsFile, Buffer.from(JSON.stringify(settings, null, 2)));
 
@@ -93,6 +98,7 @@ function createWindow() {
   win.webContents.on('render-process-gone', () => { if (!quitting) win.reload(); });
 
   const state = () => send({ type: 'window', maximized: win.isMaximized(), focused: win.isFocused() });
+  win.webContents.on('did-finish-load', state); // after a reload too, or a maximized window gets round corners
   win.on('maximize', state);
   win.on('unmaximize', state);
   win.on('blur', state);
@@ -148,9 +154,9 @@ async function openPaths(argv) {
 function search({ query, regex, caseSensitive }) {
   if (typeof query !== 'string' || !query) return Promise.resolve([]);
   return new Promise((resolve, reject) => {
-    const worker = new Worker(path.join(here, 'search-worker.js'), { workerData: { vault: settings.vault, query, regex: !!regex, caseSensitive: !!caseSensitive } });
+    const worker = new Worker(path.join(here, 'search-worker.js'), { workerData: { vault: settings.vault, query, regex: !!regex, caseSensitive: !!caseSensitive, language: language() } });
     // A pathological regex must not take the app down with it, so it runs in a thread that can be killed.
-    const timer = setTimeout(() => { worker.terminate(); reject(new Error('Die Suche hat zu lange gedauert. Versuche einen einfacheren Ausdruck.')); }, SEARCH_TIMEOUT_MS);
+    const timer = setTimeout(() => { worker.terminate(); reject(new Error(t('Die Suche hat zu lange gedauert. Versuche einen einfacheren Ausdruck.'))); }, SEARCH_TIMEOUT_MS);
     worker.once('message', (m) => { clearTimeout(timer); worker.terminate(); if (m.error) reject(new Error(m.error)); else resolve(m.results); });
     worker.once('error', (e) => { clearTimeout(timer); reject(e); });
   });
@@ -158,7 +164,7 @@ function search({ query, regex, caseSensitive }) {
 
 function registerIpc() {
   const handle = (name, fn) => ipcMain.handle(name, async (e, ...args) => {
-    if (!e.senderFrame?.url.startsWith('mynotes://app/')) throw new Error('Nicht erlaubt.');
+    if (!e.senderFrame?.url.startsWith('mynotes://app/')) throw new Error(t('Nicht erlaubt.'));
     try { return { ok: true, value: await fn(...args) }; }
     catch (err) { return { ok: false, error: err.message }; }
   });
@@ -200,9 +206,10 @@ function registerIpc() {
   handle('settings', () => settings);
   handle('version', () => app.getVersion());
   handle('setSettings', async (patch) => {
-    for (const k of ['theme', 'contrast', 'transparency', 'motion', 'glass', 'fontSize', 'wrap', 'fullWidth', 'jsonIndent', 'sidebarWidth', 'sidebarHidden']) {
+    for (const k of ['theme', 'contrast', 'transparency', 'motion', 'glass', 'fontSize', 'wrap', 'fullWidth', 'jsonIndent', 'sidebarWidth', 'sidebarHidden', 'language']) {
       if (k in patch) settings[k] = patch[k];
     }
+    applyLanguage();
     await saveSettings();
     return settings;
   });
@@ -211,7 +218,7 @@ function registerIpc() {
     return r.filePaths[0] ?? null;
   });
   handle('changeVault', async (dir) => {
-    if (typeof dir !== 'string' || !path.isAbsolute(dir)) throw new Error('Wähle einen vollständigen Ordnerpfad.');
+    if (typeof dir !== 'string' || !path.isAbsolute(dir)) throw new Error(t('Wähle einen vollständigen Ordnerpfad.'));
     await store.changeVault(dir);
     settings.vault = store.vault;
     await saveSettings();
@@ -220,10 +227,10 @@ function registerIpc() {
   });
   handle('setBackup', async (dir) => {
     if (dir !== null) {
-      if (typeof dir !== 'string' || !path.isAbsolute(dir)) throw new Error('Wähle einen vollständigen Ordnerpfad.');
+      if (typeof dir !== 'string' || !path.isAbsolute(dir)) throw new Error(t('Wähle einen vollständigen Ordnerpfad.'));
       const within = (a, b) => { const r = path.relative(a, b); return !r || (!r.startsWith('..') && !path.isAbsolute(r)); };
       // Inside each other the backup would copy itself again on every run.
-      if (within(settings.vault, dir) || within(dir, settings.vault)) throw new Error('Der Sicherungsort darf nicht im Notizordner liegen. Wähle ein anderes Laufwerk oder einen anderen Ordner.');
+      if (within(settings.vault, dir) || within(dir, settings.vault)) throw new Error(t('Der Sicherungsort darf nicht im Notizordner liegen. Wähle ein anderes Laufwerk oder einen anderen Ordner.'));
     }
     settings.backup = dir;
     await saveSettings();
@@ -231,8 +238,11 @@ function registerIpc() {
     return settings;
   });
 
+  // Synchronous: the window's modules need it before their first line runs.
+  ipcMain.on('language', (e) => { e.returnValue = language(); });
   ipcMain.on('win', (_e, what) => {
-    if (what === 'minimize') win?.minimize();
+    if (what === 'reload') win?.webContents.reload(); // a new language: the journal and session.json bring every tab back
+    else if (what === 'minimize') win?.minimize();
     else if (what === 'maximize') toggleMaximize();
     else if (what === 'close') win?.close();
   });

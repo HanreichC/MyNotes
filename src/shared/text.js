@@ -1,5 +1,7 @@
 // Bytes <-> text without losing anything, and file names that stay valid on both Windows and Linux.
 
+import { t } from './i18n.js';
+
 const cp1252Table = (() => {
   const dec = new TextDecoder('windows-1252');
   const map = new Map();
@@ -16,14 +18,14 @@ export function decode(bytes) {
   else if (startsWith(bytes, 0xff, 0xfe)) { encoding = 'utf-16le'; bom = true; raw = bytes.subarray(2); }
   else if (startsWith(bytes, 0xfe, 0xff)) { encoding = 'utf-16be'; bom = true; raw = bytes.subarray(2); }
   else {
-    if (bytes.subarray(0, 8192).includes(0)) throw new Error('Das ist eine Binärdatei.');
+    if (bytes.subarray(0, 8192).includes(0)) throw new Error(t('Das ist eine Binärdatei.'));
     raw = bytes;
     try { new TextDecoder('utf-8', { fatal: true }).decode(raw); encoding = 'utf-8'; }
     catch { encoding = 'windows-1252'; }
   }
   let text;
   try { text = new TextDecoder(encoding, { fatal: true, ignoreBOM: true }).decode(raw); }
-  catch { throw new Error('Die Datei passt nicht zu ihrer Kennung und wird deshalb nicht geöffnet.'); }
+  catch { throw new Error(t('Die Datei passt nicht zu ihrer Kennung und wird deshalb nicht geöffnet.')); }
 
   const crlf = (text.match(/\r\n/g) ?? []).length;
   const lone = (text.match(/\r(?!\n)/g) ?? []).length;
@@ -54,14 +56,14 @@ export function encode(text, { encoding = 'utf-8', bom = false, eol = '\n' } = {
 const RESERVED = /^(con|prn|aux|nul|com\d|lpt\d)(\..*)?$/i;
 
 /** A file name stem that is valid on Windows and Linux, so a synced folder works on both. */
-export function safeName(name, fallback = 'Unbenannt') {
+export function safeName(name, fallback = t('Unbenannt')) {
   const s = String(name).replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80).replace(/\p{Cs}/gu, '').replace(/[. ]+$/, '').trim(); // a cut can split an emoji
   if (!/[\p{L}\p{N}]/u.test(s)) return fallback;
   return RESERVED.test(s) ? `_${s}` : s;
 }
 
 /** Prose is named after its first line. The first line of code or JSON says nothing, so those wait for a real name. */
-export const nameFromText = (text, ext) => (/^\.(md|markdown|txt)$/i.test(ext) ? titleOf(text) : 'Unbenannt');
+export const nameFromText = (text, ext) => (/^\.(md|markdown|txt)$/i.test(ext) ? titleOf(text) : t('Unbenannt'));
 
 const TITLE_MAX = 40;
 
@@ -77,5 +79,5 @@ export function titleOf(text) {
       .replace(/^\s*(#{1,6}\s+|>\s*|[-*+]\s+(\[[ xX]\]\s+)?|\d+[.)]\s+)*/, '').replace(/[*_`~]/g, '').trim();
     if (/[\p{L}\p{N}]/u.test(t)) return safeName(shorten(t));
   }
-  return 'Unbenannt';
+  return t('Unbenannt');
 }

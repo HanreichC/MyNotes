@@ -9,12 +9,13 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { crc32, gunzip as gunzipCb, gzip as gzipCb } from 'node:zlib';
+import { t } from '../shared/i18n.js';
 import { decode, encode, nameFromText, safeName } from '../shared/text.js';
 
 const gzip = promisify(gzipCb);
 const gunzip = promisify(gunzipCb);
 
-export const INBOX = 'Eingang';
+const inbox = () => t('Eingang');
 const TRASH = '.trash';
 const META = '.mynotes';
 const TMP_SUFFIX = '.mynotes-tmp';
@@ -136,11 +137,11 @@ const humanStamp = (d = new Date()) => {
 
 /** Paths from the renderer are a trust boundary: relative, no way out of the notes folder, no internal folders. */
 export function checkRel(rel, { allowEmpty = false } = {}) {
-  if (typeof rel !== 'string' || rel.includes('\0') || rel.includes('\\')) throw new Error('Ungültiger Pfad.');
-  if (rel === '') { if (allowEmpty) return rel; throw new Error('Ungültiger Pfad.'); }
-  if (path.posix.isAbsolute(rel) || /^[a-zA-Z]:/.test(rel)) throw new Error('Ungültiger Pfad.');
+  if (typeof rel !== 'string' || rel.includes('\0') || rel.includes('\\')) throw new Error(t('Ungültiger Pfad.'));
+  if (rel === '') { if (allowEmpty) return rel; throw new Error(t('Ungültiger Pfad.')); }
+  if (path.posix.isAbsolute(rel) || /^[a-zA-Z]:/.test(rel)) throw new Error(t('Ungültiger Pfad.'));
   const parts = rel.split('/');
-  if (parts.some((p) => p === '' || p === '.' || p === '..' || p === TRASH || p === META || p.endsWith(TMP_SUFFIX))) throw new Error('Ungültiger Pfad.');
+  if (parts.some((p) => p === '' || p === '.' || p === '..' || p === TRASH || p === META || p.endsWith(TMP_SUFFIX))) throw new Error(t('Ungültiger Pfad.'));
   return rel;
 }
 
@@ -212,7 +213,7 @@ export class Store {
         // Never delete what we cannot read: it stays for a human to look at.
         await fs.mkdir(path.join(this.journalDir, 'unreadable'), { recursive: true });
         await fs.rename(jpath, path.join(this.journalDir, 'unreadable', f));
-        this.notices.push({ kind: 'warning', text: `Ein Journal war nicht lesbar und liegt jetzt in ${path.join(this.journalDir, 'unreadable')}.` });
+        this.notices.push({ kind: 'warning', text: t('Ein Journal war nicht lesbar und liegt jetzt in {dir}.', { dir: path.join(this.journalDir, 'unreadable') }) });
         continue;
       }
       const doc = this.#fromState(state, jpath);
@@ -271,18 +272,18 @@ export class Store {
     if (same) {
       if (pending) {
         this.#schedule(doc, 0);
-        this.notices.push({ kind: 'info', text: `„${this.#name(doc)}“ wurde nach einem unerwarteten Ende wiederhergestellt.` });
+        this.notices.push({ kind: 'info', text: t('„{name}“ wurde nach einem unerwarteten Ende wiederhergestellt.', { name: this.#name(doc) }) });
       }
     } else if (!disk && !pending) {
       await this.#saveDeletedElsewhere(doc);
     } else if (!disk) {
       doc.diskHash = null;
       this.#schedule(doc, 0);
-      this.notices.push({ kind: 'info', text: `„${this.#name(doc)}“ fehlte im Notizordner und wurde wiederhergestellt.` });
+      this.notices.push({ kind: 'info', text: t('„{name}“ fehlte im Notizordner und wurde wiederhergestellt.', { name: this.#name(doc) }) });
     } else if (pending) {
-      const copy = await this.#conflictCopy(target, encode(doc.text, doc) ?? Buffer.from(doc.text), 'Konflikt');
+      const copy = await this.#conflictCopy(target, encode(doc.text, doc) ?? Buffer.from(doc.text), t('Konflikt'));
       await this.#reloadFrom(doc, disk);
-      this.notices.push({ kind: 'warning', text: `„${this.#name(doc)}“ wurde außerhalb geändert. Dein Stand liegt daneben als „${path.basename(copy)}“.` });
+      this.notices.push({ kind: 'warning', text: t('„{name}“ wurde außerhalb geändert. Dein Stand liegt daneben als „{copy}“.', { name: this.#name(doc), copy: path.basename(copy) }) });
     } else {
       await this.#snapshot(doc, encode(doc.text, doc) ?? Buffer.from(doc.text));
       await this.#reloadFrom(doc, disk);
@@ -302,7 +303,7 @@ export class Store {
       await atomicWrite(path.join(dir, 'meta.json'), Buffer.from(JSON.stringify(meta)));
       this.#toBackup({ op: 'trash', id, meta });
     }
-    this.notices.push({ kind: 'warning', text: `„${this.#name(doc)}“ wurde außerhalb der App gelöscht. Der letzte Stand liegt im Papierkorb.` });
+    this.notices.push({ kind: 'warning', text: t('„{name}“ wurde außerhalb der App gelöscht. Der letzte Stand liegt im Papierkorb.', { name: this.#name(doc) }) });
     await this.#dropJournal(doc);
   }
 
@@ -365,7 +366,7 @@ export class Store {
 
   async #openFile(fields, file) {
     const st = await fs.stat(file);
-    if (st.size > MAX_OPEN_BYTES) throw new Error('Die Datei ist größer als 128 MB und kann nicht geöffnet werden.');
+    if (st.size > MAX_OPEN_BYTES) throw new Error(t('Die Datei ist größer als 128 MB und kann nicht geöffnet werden.'));
     const bytes = await fs.readFile(file);
     const dec = decode(bytes);
     const doc = await this.#newDoc({
@@ -378,7 +379,7 @@ export class Store {
   /** Text from the editor. Resolves with ok: true once it is durable on disk. */
   update(id, text) {
     const doc = this.#doc(id);
-    if (typeof text !== 'string') throw new Error('Ungültiger Text.');
+    if (typeof text !== 'string') throw new Error(t('Ungültiger Text.'));
     doc.latest = text;
     this.#schedule(doc);
     doc.flushing ??= this.#journal(doc, async () => {
@@ -390,7 +391,7 @@ export class Store {
 
   #doc(id) {
     const doc = this.docs.get(id);
-    if (!doc) throw new Error('Dieses Dokument ist nicht geöffnet.');
+    if (!doc) throw new Error(t('Dieses Dokument ist nicht geöffnet.'));
     return doc;
   }
 
@@ -475,10 +476,10 @@ export class Store {
     const text = doc.jfailed ? doc.latest : doc.text;
     const seq = doc.seq;
     if (!doc.jfailed && seq === doc.committedSeq && this.#target(doc)) { doc.firstDirtyAt = 0; return; }
-    if (!doc.external && !(await this.#vaultOnline())) throw new Error('Der Notizordner ist nicht erreichbar.');
+    if (!doc.external && !(await this.#vaultOnline())) throw new Error(t('Der Notizordner ist nicht erreichbar.'));
     if (!this.#target(doc)) {
       if (!text) return;
-      doc.path = await this.#freeRel(INBOX, nameFromText(text, doc.ext), doc.ext);
+      doc.path = await this.#freeRel(inbox(),nameFromText(text, doc.ext), doc.ext);
       await this.#journal(doc, () => this.#append(doc, { t: 'm', m: { path: doc.path } }));
       this.emit({ type: 'meta', doc: this.#public(doc) });
       this.emit({ type: 'tree' });
@@ -490,7 +491,7 @@ export class Store {
       doc.bom = false;
       bytes = encode(text, doc);
       await this.#journal(doc, () => this.#append(doc, { t: 'm', m: { encoding: 'utf-8', bom: false } }));
-      this.notices.push({ kind: 'info', text: `„${this.#name(doc)}“ wird jetzt als UTF-8 gespeichert, weil sie Zeichen enthält, die das alte Encoding nicht kennt.` });
+      this.notices.push({ kind: 'info', text: t('„{name}“ wird jetzt als UTF-8 gespeichert, weil sie Zeichen enthält, die das alte Encoding nicht kennt.', { name: this.#name(doc) }) });
       this.emit({ type: 'notices' });
       this.emit({ type: 'meta', doc: this.#public(doc) });
     }
@@ -501,8 +502,8 @@ export class Store {
       const diskHash = sha(disk);
       if (diskHash !== hash) {
         if (diskHash !== doc.diskHash) {
-          const copy = await this.#conflictCopy(target, disk, 'extern geändert');
-          this.notices.push({ kind: 'warning', text: `„${this.#name(doc)}“ wurde außerhalb geändert. Die fremde Fassung liegt daneben als „${path.basename(copy)}“.` });
+          const copy = await this.#conflictCopy(target, disk, t('extern geändert'));
+          this.notices.push({ kind: 'warning', text: t('„{name}“ wurde außerhalb geändert. Die fremde Fassung liegt daneben als „{copy}“.', { name: this.#name(doc), copy: path.basename(copy) }) });
           this.emit({ type: 'notices' });
           this.emit({ type: 'tree' });
         }
@@ -558,7 +559,7 @@ export class Store {
     if (['\n', '\r\n', '\r'].includes(eol)) m.eol = eol;
     if (typeof bom === 'boolean') m.bom = bom;
     const probe = { encoding: doc.encoding, bom: doc.bom, eol: doc.eol, ...m };
-    if (!encode(doc.latest, probe)) throw new Error('Dieses Encoding kann nicht alle Zeichen der Datei darstellen.');
+    if (!encode(doc.latest, probe)) throw new Error(t('Dieses Encoding kann nicht alle Zeichen der Datei darstellen.'));
     Object.assign(doc, m);
     await this.#journal(doc, () => this.#append(doc, { t: 'm', m }));
     doc.committedSeq = -1; // the bytes change even though the text does not
@@ -592,10 +593,10 @@ export class Store {
           await this.#reloadFrom(doc, disk);
           this.emit({ type: 'reload', doc: this.#public(doc) });
         } else {
-          const copy = await this.#conflictCopy(target, disk, 'extern geändert');
+          const copy = await this.#conflictCopy(target, disk, t('extern geändert'));
           await this.#snapshot(doc, disk);
           doc.diskHash = hash;
-          this.notices.push({ kind: 'warning', text: `„${this.#name(doc)}“ wurde außerhalb geändert. Die fremde Fassung liegt daneben als „${path.basename(copy)}“.` });
+          this.notices.push({ kind: 'warning', text: t('„{name}“ wurde außerhalb geändert. Die fremde Fassung liegt daneben als „{copy}“.', { name: this.#name(doc), copy: path.basename(copy) }) });
           this.emit({ type: 'notices' });
           this.emit({ type: 'tree' });
         }
@@ -667,7 +668,7 @@ export class Store {
   }
 
   async readVersion(ref, version) {
-    if (typeof version !== 'string' || !/^[\w-]+\.gz$/.test(version)) throw new Error('Ungültige Version.');
+    if (typeof version !== 'string' || !/^[\w-]+\.gz$/.test(version)) throw new Error(t('Ungültige Version.'));
     const dir = this.#historyDirFor(ref);
     return decode(await gunzip(await fs.readFile(path.join(dir, version)))).text;
   }
@@ -718,7 +719,7 @@ export class Store {
   /** The hand-made order of one folder, as in a wiki. */
   async setOrder(folder, names) {
     checkRel(folder, { allowEmpty: true });
-    if (!Array.isArray(names) || names.some((n) => typeof n !== 'string')) throw new Error('Ungültige Reihenfolge.');
+    if (!Array.isArray(names) || names.some((n) => typeof n !== 'string')) throw new Error(t('Ungültige Reihenfolge.'));
     return this.#vault(async () => {
       const order = await this.#readOrder();
       order[folder] = names;
@@ -739,7 +740,7 @@ export class Store {
   async createFolder(parent, name) {
     checkRel(parent, { allowEmpty: true });
     return this.#vault(async () => {
-      if (!(await this.#vaultOnline())) throw new Error('Der Notizordner ist nicht erreichbar.');
+      if (!(await this.#vaultOnline())) throw new Error(t('Der Notizordner ist nicht erreichbar.'));
       const rel = await this.#freeRel(parent, safeName(name, 'Neuer Ordner'), '');
       await fs.mkdir(this.#abs(rel), { recursive: true });
       this.emit({ type: 'tree' });
@@ -751,7 +752,7 @@ export class Store {
   async createNote(folder, name) {
     checkRel(folder, { allowEmpty: true });
     return this.#vault(async () => {
-      if (!(await this.#vaultOnline())) throw new Error('Der Notizordner ist nicht erreichbar.');
+      if (!(await this.#vaultOnline())) throw new Error(t('Der Notizordner ist nicht erreichbar.'));
       const given = safeName(name);
       const [stem, ext] = splitExt(given);
       const rel = FILE_EXT.test(ext) ? await this.#freeRel(folder, stem, ext) : await this.#freeRel(folder, given, '.md');
@@ -767,8 +768,8 @@ export class Store {
     return this.#vault(async () => {
       const now = await this.#flushUnder(rel);
       const { size, isFile } = await fs.stat(this.#abs(now)).then((st) => ({ size: st.size, isFile: st.isFile() }));
-      if (!isFile) throw new Error('Nur Dateien lassen sich konvertieren.');
-      if (size > MAX_CONVERT_BYTES) throw new Error('Die Datei ist größer als 32 MB und kann nicht konvertiert werden.');
+      if (!isFile) throw new Error(t('Nur Dateien lassen sich konvertieren.'));
+      if (size > MAX_CONVERT_BYTES) throw new Error(t('Die Datei ist größer als 32 MB und kann nicht konvertiert werden.'));
       return { rel: now, bytes: await fs.readFile(this.#abs(now)) };
     });
   }
@@ -776,9 +777,9 @@ export class Store {
   /** A new note right below another one in the tree. Never overwrites: a taken name gets a number. */
   async createBelow(rel, name, ext, bytes) {
     checkRel(rel);
-    if (!FILE_EXT.test(ext) || !(bytes instanceof Uint8Array)) throw new Error('Ungültige Datei.');
+    if (!FILE_EXT.test(ext) || !(bytes instanceof Uint8Array)) throw new Error(t('Ungültige Datei.'));
     return this.#vault(async () => {
-      if (!(await this.#vaultOnline())) throw new Error('Der Notizordner ist nicht erreichbar.');
+      if (!(await this.#vaultOnline())) throw new Error(t('Der Notizordner ist nicht erreichbar.'));
       const folder = path.posix.dirname(rel) === '.' ? '' : path.posix.dirname(rel);
       const dest = await this.#freeRel(folder, safeName(name), ext);
       await atomicWrite(this.#abs(dest), Buffer.from(bytes));
@@ -800,7 +801,7 @@ export class Store {
   async move(rel, destFolder, newName) {
     checkRel(rel);
     checkRel(destFolder, { allowEmpty: true });
-    if (destFolder === rel || destFolder.startsWith(`${rel}/`)) throw new Error('Ein Ordner kann nicht in sich selbst verschoben werden.');
+    if (destFolder === rel || destFolder.startsWith(`${rel}/`)) throw new Error(t('Ein Ordner kann nicht in sich selbst verschoben werden.'));
     return this.#vault(async () => {
       rel = await this.#flushUnder(rel);
       const oldName = path.posix.basename(rel);
@@ -888,7 +889,7 @@ export class Store {
 
   /** The note type changed, e.g. JSON pasted into an empty note. */
   async setExtension(id, ext) {
-    if (!/^\.[\w-]{1,12}$/.test(ext)) throw new Error('Ungültige Dateiendung.');
+    if (!/^\.[\w-]{1,12}$/.test(ext)) throw new Error(t('Ungültige Dateiendung.'));
     const doc = this.#doc(id);
     return this.#vault(async () => {
       if (doc.external) return this.#public(doc);
@@ -907,9 +908,9 @@ export class Store {
 
   /** A pasted image. Named by content and addressed from the notes folder, so moving a note keeps its images. */
   async saveAsset(bytes, ext) {
-    if (!/^(png|jpe?g|gif|webp|bmp)$/i.test(ext) || !(bytes instanceof Uint8Array)) throw new Error('Dieses Bildformat wird nicht unterstützt.');
+    if (!/^(png|jpe?g|gif|webp|bmp)$/i.test(ext) || !(bytes instanceof Uint8Array)) throw new Error(t('Dieses Bildformat wird nicht unterstützt.'));
     return this.#vault(async () => {
-      if (!(await this.#vaultOnline())) throw new Error('Der Notizordner ist nicht erreichbar.');
+      if (!(await this.#vaultOnline())) throw new Error(t('Der Notizordner ist nicht erreichbar.'));
       const rel = `${META}/assets/${sha(bytes).slice(0, 24)}.${ext.toLowerCase()}`;
       if (!(await exists(path.join(this.vault, ...rel.split('/'))))) await atomicWrite(path.join(this.vault, ...rel.split('/')), Buffer.from(bytes));
       return rel;
@@ -957,7 +958,7 @@ export class Store {
   }
 
   #trashEntry(id) {
-    if (typeof id !== 'string' || !/^[\w-]+$/.test(id)) throw new Error('Ungültiger Eintrag.');
+    if (typeof id !== 'string' || !/^[\w-]+$/.test(id)) throw new Error(t('Ungültiger Eintrag.'));
     return path.join(this.vault, TRASH, id);
   }
 
@@ -982,7 +983,7 @@ export class Store {
   /** The only real delete in the app, and only ever after the user confirmed it: the notes, their versions, and both in the backup. */
   async emptyTrash() {
     return this.#vault(async () => {
-      if (!(await this.#vaultOnline())) throw new Error('Der Notizordner ist nicht erreichbar.');
+      if (!(await this.#vaultOnline())) throw new Error(t('Der Notizordner ist nicht erreichbar.'));
       const entries = await this.listTrash();
       await fs.rm(path.join(this.vault, TRASH), { recursive: true, force: true });
       const history = [];
@@ -1037,7 +1038,7 @@ export class Store {
     while (this.backupQ.length) {
       const item = this.backupQ[0];
       // Never mkdir a missing backup: it may be an unplugged drive, and the copies would land where nobody looks for them.
-      if (!(await exists(this.backup))) return halt(new Error('Der Sicherungsort ist nicht erreichbar.'));
+      if (!(await exists(this.backup))) return halt(new Error(t('Der Sicherungsort ist nicht erreichbar.')));
       try {
         await this.#applyToBackup(item);
         this.emit({ type: 'backup-ok' });
@@ -1118,7 +1119,7 @@ export class Store {
     const to = path.resolve(newVault);
     if (from === to) return;
     const inside = (a, b) => { const r = path.relative(a, b); return r && !r.startsWith('..') && !path.isAbsolute(r); };
-    if (inside(from, to) || inside(to, from)) throw new Error('Der neue Ordner darf nicht im alten liegen und umgekehrt.');
+    if (inside(from, to) || inside(to, from)) throw new Error(t('Der neue Ordner darf nicht im alten liegen und umgekehrt.'));
     return this.#vault(async () => {
       for (const d of this.docs.values()) await this.#commitNow(d);
       await fs.mkdir(to, { recursive: true });
@@ -1133,9 +1134,9 @@ export class Store {
           const bytes = await fs.readFile(src);
           const have = await readIfExists(dst);
           if (have && sha(have) === sha(bytes)) continue;
-          if (have) dst = await this.#conflictCopy(dst, bytes, 'aus altem Ordner');
+          if (have) dst = await this.#conflictCopy(dst, bytes, t('aus altem Ordner'));
           else await atomicWrite(dst, bytes);
-          if (sha(await fs.readFile(dst)) !== sha(bytes)) throw new Error(`Kopie von ${e.name} ist fehlerhaft, der alte Ordner bleibt aktiv.`);
+          if (sha(await fs.readFile(dst)) !== sha(bytes)) throw new Error(t('Kopie von {name} ist fehlerhaft, der alte Ordner bleibt aktiv.', { name: e.name }));
         }
       };
       await copy(from, to);
