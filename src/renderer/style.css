@@ -34,7 +34,7 @@ svg { display: block; }
 #brand { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--ms-space-s); margin: calc(-1 * var(--ms-space-l)) calc(-1 * var(--ms-space-s)) 0; padding: var(--ms-space-l) var(--ms-space-s) var(--ms-space-m) var(--ms-space-l); user-select: none; -webkit-app-region: drag; }
 /* W-1: with the sidebar away, name and button become a capsule at the start of the title row. It comes after #tabs in the DOM for the same reason. */
 #titlebar > #brand { order: -1; margin: 0; padding: 0 var(--ms-space-xs) 0 var(--ms-space-l); }
-#titlebar > #brand .round-btn--s { width: var(--ms-size-window-button); height: var(--ms-size-window-button); padding: 9px; }
+#titlebar > #brand .round-btn--s { width: var(--ms-size-window-button); height: var(--ms-size-window-button); padding: calc((var(--ms-size-window-button) - var(--ms-size-icon-window)) / 2); }
 #version { margin: var(--ms-space-s) 0 0 var(--ms-space-s); }
 .side-tools { display: flex; align-items: center; gap: var(--ms-space-xxs); padding: 0 var(--ms-space-xxs) var(--ms-space-s); }
 .side-tools .ms-field { flex: 1; min-width: 0; }
@@ -91,10 +91,10 @@ svg { display: block; }
 .tab-close { flex: none; display: grid; place-items: center; width: var(--ms-size-hit-min-desktop); height: var(--ms-size-hit-min-desktop); padding: 5px; border: 0; border-radius: var(--ms-radius-capsule); background: transparent; color: var(--ms-color-label-secondary); opacity: 0; }
 .tab:hover .tab-close, .tab.is-active .tab-close, .tab.is-paired .tab-close, .tab-close:focus-visible { opacity: 1; }
 .tab-close:hover { background: var(--ms-color-fill-secondary); color: var(--ms-color-label-primary); }
-.icon-btn { flex: none; display: grid; place-items: center; width: var(--ms-size-window-button); height: var(--ms-size-window-button); padding: 9px; border: 0; border-radius: var(--ms-radius-capsule); background: transparent; -webkit-app-region: no-drag; }
+.icon-btn { flex: none; display: grid; place-items: center; width: var(--ms-size-window-button); height: var(--ms-size-window-button); padding: calc((var(--ms-size-window-button) - var(--ms-size-icon-window)) / 2); border: 0; border-radius: var(--ms-radius-capsule); background: transparent; -webkit-app-region: no-drag; }
 .icon-btn:hover { background: var(--ms-color-fill-tertiary); }
 .side-tools .icon-btn { width: var(--ms-size-control-desktop); height: var(--ms-size-control-desktop); padding: 7px; }
-.round-btn { flex: none; display: grid; place-items: center; width: var(--ms-size-window-button); height: var(--ms-size-window-button); padding: 9px; border: 0; border-radius: var(--ms-radius-capsule); background: transparent; -webkit-app-region: no-drag;
+.round-btn { flex: none; display: grid; place-items: center; width: var(--ms-size-window-button); height: var(--ms-size-window-button); padding: calc((var(--ms-size-window-button) - var(--ms-size-icon-window)) / 2); border: 0; border-radius: var(--ms-radius-capsule); background: transparent; -webkit-app-region: no-drag;
   transition: background-color var(--ms-motion-duration-hover) var(--ms-motion-easing-standard); }
 .round-btn:hover { background: var(--ms-color-fill-tertiary); }
 .round-btn:active { background: var(--ms-color-fill-secondary); }

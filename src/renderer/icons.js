@@ -1,9 +1,10 @@
-// MyStyle icons (I-1): 24 grid, 1.8 stroke, round caps, currentColor. Shared symbols come from MyPods (I-4).
+// MyStyle icons (I-1): 24 grid, 1.8 stroke, round caps, currentColor. Shared symbols come from MyPods (I-4),
+// the window buttons from MyStyle platforms/icons.
 const stroke = (d, w = 1.8) => `<g fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${d}</g>`;
 
 const paths = {
   plus: '<rect x="4" y="10.9" width="16" height="2.2" rx="1.1" fill="currentColor"/><rect x="10.9" y="4" width="2.2" height="16" rx="1.1" fill="currentColor"/>',
-  minus: '<rect x="4" y="10.9" width="16" height="2.2" rx="1.1" fill="currentColor"/>',
+  minimize: stroke('<path d="M6 12h12"/>'),
   close: stroke('<path d="M7 7l10 10M17 7 7 17"/>'),
   check: stroke('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 2.2),
   info: stroke('<circle cx="12" cy="12" r="9.2"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r=".4"/>'),
@@ -20,7 +21,7 @@ const paths = {
   search: stroke('<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20.5 20.5"/>'),
   trash: stroke('<path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5"/>'),
   maximize: stroke('<rect x="6" y="6" width="12" height="12" rx="2.5"/>'),
-  restore: stroke('<rect x="5" y="9" width="10" height="10" rx="2.5"/><path d="M9 5.5h7a3 3 0 0 1 3 3v7"/>'),
+  restore: stroke('<rect x="6" y="9" width="9" height="9" rx="2"/><path d="M9 6h6.5A2.5 2.5 0 0 1 18 8.5V15"/>'),
   sidebar: stroke('<rect x="3.5" y="5" width="17" height="14" rx="3"/><path d="M9.5 5v14"/>'),
   chevronRight: stroke('<path d="M9.5 6l6 6-6 6"/>', 2),
   chevronDown: stroke('<path d="M6 9.5l6 6 6-6"/>', 2),

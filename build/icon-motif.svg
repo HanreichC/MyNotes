@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- a sheet with a folded corner, 640 high; app plate: MyStyle tools/app_icon.py -->
+  <g transform="translate(512 512) scale(1.0811) translate(-496 -528)">
+    <path d="M312 232h272v96a56 56 0 0 0 56 56h96v384a56 56 0 0 1-56 56H312a56 56 0 0 1-56-56V288a56 56 0 0 1 56-56z" fill="#FFFFFF"/>
+    <path d="M584 232l152 152H640a56 56 0 0 1-56-56z" fill="#FFFFFF" fill-opacity="{secondary}"/>
+    <g stroke="{ink}" stroke-width="44" stroke-linecap="round">
+      <path d="M352 500h288"/>
+      <path d="M352 592h288"/>
+      <path d="M352 684h176"/>
+    </g>
+  </g>
+</svg>

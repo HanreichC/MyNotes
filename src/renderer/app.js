@@ -1244,7 +1244,7 @@ function wire() {
   const iconize = (id, name) => { $(id).innerHTML = icon(name); };
   iconize('new-folder', 'folderPlus');
   iconize('tab-new', 'plus');
-  iconize('win-min', 'minus');
+  iconize('win-min', 'minimize');
   iconize('win-max', 'maximize');
   iconize('win-close', 'close');
   iconize('side-toggle', 'sidebar');
