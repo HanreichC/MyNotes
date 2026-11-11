@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { isJson, JsonError, minifyJson, prettyJson } from '../src/shared/json.js';
-import { decode, encode, safeName, titleOf } from '../src/shared/text.js';
+import { changedSpan, decode, encode, safeName, titleOf } from '../src/shared/text.js';
 
 test('pretty print only touches whitespace: numbers, duplicates and escapes survive', () => {
   const src = '{"big":12345678901234567890,"f":1.0,"e":1E+5,"a":1,"a":2,"s":"x\\"y\\n{,:}","u":"\\u00e4","e0":{},"e1":[ ],"10":0,"2":0}';
@@ -91,4 +91,13 @@ test('titles come from the first line with text', () => {
   assert.equal(titleOf('x'.repeat(60)), 'x'.repeat(40));
   assert.equal(titleOf(`Erster Satz. ${'x'.repeat(50)}`), 'Erster Satz');
   assert.equal(titleOf(`${'x'.repeat(39)}😀😀`), 'x'.repeat(39));
+});
+
+test('changedSpan covers only what differs, so the editor keeps its place', () => {
+  const span = (a, b) => { const s = changedSpan(a, b); return [a.slice(s.from, s.toA), b.slice(s.from, s.toB), s.from]; };
+  assert.deepEqual(span('abcXdef', 'abcYYdef'), ['X', 'YY', 3]);
+  assert.deepEqual(span('aaa', 'aaaa'), ['', 'a', 3]); // no overlap of start and end
+  assert.deepEqual(span('same', 'same'), ['', '', 4]);
+  assert.deepEqual(span('', 'new'), ['', 'new', 0]);
+  assert.deepEqual(span('old', ''), ['old', '', 0]);
 });

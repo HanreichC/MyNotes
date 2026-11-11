@@ -9,6 +9,7 @@ import { EditorView, keymap } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import { basicSetup } from 'codemirror';
 import { language, t } from '../shared/i18n.js';
+import { changedSpan } from '../shared/text.js';
 import { count } from './ui.js';
 
 const highlight = HighlightStyle.define([
@@ -182,8 +183,15 @@ function editorApi(view, { wrapping, language }, name, destroy) {
   return {
     kind: 'code',
     getText: () => view.state.doc.toString(),
-    /** Replaces everything as one undo step of its own, not merged with the paste just before it, so a formatter can be taken back alone. */
-    setText(next) { view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: next }, annotations: isolateHistory.of('full') }); },
+    /**
+     * Replaces the text as one undo step of its own, not merged with the paste just before it, so a formatter can be taken back alone.
+     * Only the part that differs is replaced: replacing everything sends the cursor and the view to the top.
+     */
+    setText(next) {
+      const { from, toA, toB } = changedSpan(view.state.doc.toString(), next);
+      const changes = view.state.changes({ from, to: toA, insert: next.slice(from, toB) });
+      view.dispatch({ changes, selection: view.state.selection.map(changes, 1), annotations: isolateHistory.of('full') });
+    },
     setRename: setLanguage,
     focus: () => view.focus(),
     destroy,

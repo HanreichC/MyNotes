@@ -81,3 +81,13 @@ export function titleOf(text) {
   }
   return t('Unbenannt');
 }
+
+/** The one span where a and b differ: a.slice(from, toA) becomes b.slice(from, toB). Same start and end stay untouched. */
+export function changedSpan(a, b) {
+  const max = Math.min(a.length, b.length);
+  let from = 0;
+  while (from < max && a.charCodeAt(from) === b.charCodeAt(from)) from++;
+  let end = 0;
+  while (end < max - from && a.charCodeAt(a.length - 1 - end) === b.charCodeAt(b.length - 1 - end)) end++;
+  return { from, toA: a.length - end, toB: b.length - end };
+}
