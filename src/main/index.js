@@ -121,6 +121,21 @@ function openLink(url) {
   } catch { /* not a URL */ }
 }
 
+/**
+ * The MSI gives its shortcuts the icon from %APPDATA%\Microsoft\Installer\{ProductCode}, and every update has a new
+ * ProductCode and deletes the old folder. The installer renews its own shortcuts, but not a pin on the taskbar,
+ * which is left with a blank icon. So a pin that starts this exe takes its icon from the exe itself.
+ */
+async function fixPinnedIcons(dir, exe) {
+  for (const name of await fs.readdir(dir).catch(() => [])) {
+    const file = path.join(dir, name);
+    try {
+      const link = shell.readShortcutLink(file);
+      if (link.target.toLowerCase() === exe.toLowerCase() && link.icon !== exe) shell.writeShortcutLink(file, 'update', { icon: exe, iconIndex: 0 });
+    } catch { /* not a shortcut, or not ours to change */ }
+  }
+}
+
 const timeout = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function quit() {
@@ -284,4 +299,5 @@ registerIpc();
 createWindow();
 watchVault();
 store.syncBackup();
+if (process.platform === 'win32' && app.isPackaged) fixPinnedIcons(path.join(app.getPath('appData'), 'Microsoft', 'Internet Explorer', 'Quick Launch', 'User Pinned', 'TaskBar'), process.execPath);
 win.webContents.once('did-finish-load', () => openPaths(process.argv.slice(app.isPackaged ? 1 : 2)));
