@@ -281,6 +281,7 @@ try {
     'Das ist _kursiv_ und __fett__\n',
     'A &amp; B und 5 > 3\n',
     '---\ntitle: x\n---\n\nText\n',
+    '[Link](https://example.com)\n\n&nbsp;\n\n  \n\n\n[Noch einer](https://example.org)\n', // a blank line written as "  " by an older version
   ];
   for (const [i, text] of corpus.entries()) {
     const name = `korpus${i}.md`;
@@ -314,6 +315,12 @@ try {
   await page.keyboard.press('Backspace');
   await new Promise((r) => setTimeout(r, 400));
   assert.equal((await paragraphs()).length, typed.length, 'editing does not add blank lines');
+  await newTab(page);
+  await page.keyboard.type('Oben\n');
+  await page.keyboard.press('Shift+Enter'); // a paragraph with nothing but a line break
+  await page.keyboard.type('\nUnten');
+  const withBreak = await until(async () => { const s = await read('Eingang/Oben.md'); return s.includes('Unten') && s; }, 'line break note on disk');
+  assert.ok(!/^[ \t]+$/m.test(withBreak), `a line of only spaces is lost on reload: ${JSON.stringify(withBreak)}`);
   step('blank lines survive reloading and do not accumulate');
 
   // ---------- typing without a pause still reaches the journal while it happens

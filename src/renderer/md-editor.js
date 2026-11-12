@@ -31,11 +31,13 @@ const NoteImage = Image.extend({
 /**
  * TipTap writes the first empty paragraph of a run as nothing, and Markdown swallows it on the next load: two blank
  * lines come back as one. So every blank line between blocks is written out, and only the end of the file is trimmed.
+ * A paragraph holding only a line break (Shift+Enter) or spaces is blank too: written as "  " it would vanish on reload.
  */
 const BlankLineParagraph = Paragraph.extend({
   renderMarkdown: (node, h, ctx) => {
     const content = Array.isArray(node?.content) ? node.content : [];
-    if (content.length) return h.renderChildren(content);
+    const md = content.length ? h.renderChildren(content) : '';
+    if (md.trim()) return md;
     return ctx?.parentType === 'doc' ? '&nbsp;' : ''; // inside a list or a table cell it would show up as text
   },
 });
@@ -332,7 +334,8 @@ function createToolbar(editor, onLink) {
 const marked = new Marked({ gfm: true, async: false });
 // A list mixing checkboxes and plain points comes back with a blank line in it, which Markdown calls a "loose" list:
 // same text in the same order, only the spacing differs, so the tight/loose difference does not count.
-const canon = (md) => marked.parse(md).replace(/\s+/g, ' ').replace(/> </g, '><').replaceAll('<li><p>', '<li>').replaceAll('</p></li>', '</li>').trim();
+// Blank paragraphs do not count either: extra blank lines come back as &nbsp; lines, which only keep the spacing that is shown.
+const canon = (md) => marked.parse(md).replaceAll('<p>&nbsp;</p>', '').replace(/\s+/g, ' ').replace(/> </g, '><').replaceAll('<li><p>', '<li>').replaceAll('</p></li>', '</li>').trim();
 
 /** Would the regenerated Markdown still mean the same? If we cannot tell, the answer is no. */
 export function isFaithful(original, regenerated) {
