@@ -1,6 +1,6 @@
 // The Electron main process: window, IPC, lifecycle. Everything about keeping text safe lives in store.js.
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, screen, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, screen, shell } from 'electron';
 import { existsSync, watch } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -69,6 +69,9 @@ function watchVault() {
   } catch { /* folder offline: picked up again when the window gets focus */ }
 }
 
+/** color.background.bottom of MyStyle: what an opaque window shows for a moment while it grows. */
+const windowBackground = () => (settings.theme === 'dark' || (settings.theme === 'auto' && nativeTheme.shouldUseDarkColors) ? '#1C1C1F' : '#D5D9E0');
+
 const toggleMaximize = () => { if (win?.isMaximized()) win.unmaximize(); else win?.maximize(); };
 
 function createWindow() {
@@ -77,7 +80,12 @@ function createWindow() {
   win = new BrowserWindow({
     ...(settings.bounds ?? { width: Math.min(1180, workArea.width - 80), height: Math.min(760, workArea.height - 80) }),
     minWidth: 720, minHeight: 480,
-    frame: false, transparent: true, backgroundColor: '#00000000', title: 'MyNotes', show: false,
+    frame: false, title: 'MyNotes', show: false,
+    // Windows gives a transparent window no frame styles: no snapping to the screen edges, no animations, no shadow. So there the
+    // window is opaque and Windows rounds its corners; elsewhere it is transparent for the round corners of MyStyle W-1.
+    ...(process.platform === 'win32'
+      ? { backgroundColor: windowBackground() }
+      :{ transparent: true, backgroundColor: '#00000000' }),
     webPreferences: {
       preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false,
       spellcheck: false, // on Linux this downloads dictionaries from Google, and notes stay on this machine
@@ -85,9 +93,6 @@ function createWindow() {
     },
   });
   if (settings.maximized) win.maximize();
-  // Windows sees a double click on a drag area and sends WM_SYSCOMMAND with SC_MAXIMIZE, but a transparent window ignores that.
-  // WM_NCLBUTTONDBLCLK never arrives here: Chromium takes the mouse before it, so that is no way to notice. The low 4 bits say where it came from.
-  if (process.platform === 'win32') win.hookWindowMessage(0x112, (command) => { if ((command.readUInt32LE() & 0xFFF0) === 0xF030) toggleMaximize(); });
   // MYNOTES_INACTIVE: test runs must not take the keyboard away from whoever is working at this machine
   win.once('ready-to-show', () => (process.env.MYNOTES_INACTIVE ? win.showInactive() : win.show()));
   win.loadURL('mynotes://app/index.html');
@@ -225,6 +230,7 @@ function registerIpc() {
       if (k in patch) settings[k] = patch[k];
     }
     applyLanguage();
+    if (process.platform === 'win32') win?.setBackgroundColor(windowBackground());
     await saveSettings();
     return settings;
   });

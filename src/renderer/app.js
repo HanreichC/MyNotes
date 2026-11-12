@@ -13,6 +13,7 @@ const $ = (id) => document.getElementById(id);
 const RICH_LIMIT = 2 * 1024 * 1024; // above this the WYSIWYG view gets slow: open the source instead
 const isMd = (doc) => /^\.(md|markdown)$/i.test(doc.ext);
 const isJsonFile = (doc) => /^\.json$/i.test(doc.ext);
+document.documentElement.dataset.platform = window.api.platform; // on Windows the system draws the window's corners and edge
 
 const state = {
   tabs: [], activeId: null, split: null /* [left id, right id], one of them the active tab */, tree: { items: [], online: true }, expanded: new Set(), filter: '', settings: null,

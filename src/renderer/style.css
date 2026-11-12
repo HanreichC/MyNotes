@@ -20,7 +20,7 @@ svg { display: block; }
   background: linear-gradient(var(--ms-color-background-top), var(--ms-color-background-bottom));
   box-shadow: inset 0 0 0 1px var(--ms-color-glass-popup-border);
 }
-:root[data-maximized] #window { border-radius: 0; box-shadow: none; }
+:root[data-maximized] #window, :root[data-platform="win32"] #window { border-radius: 0; box-shadow: none; }
 :root[data-side-hidden] #window { grid-template-columns: minmax(0, 1fr); }
 /* GM-4: glass steps back when the window loses focus */
 :root[data-unfocused] .ms-glass::before { opacity: 0.5; }

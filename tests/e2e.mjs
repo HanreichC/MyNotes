@@ -100,14 +100,15 @@ try {
 
   // ---------- a double click on the title row maximizes and restores. Windows only: Linux window managers do it themselves.
   // By message, so the test leaves the mouse of whoever is working at this machine alone. It sends what a real double click was measured
-  // to cause, WM_SYSCOMMAND with SC_MAXIMIZE | HTCAPTION. It says nothing about whether Windows still sends that: that takes a real mouse.
+  // to cause, WM_SYSCOMMAND with SC_MAXIMIZE | HTCAPTION, and SC_RESTORE | HTCAPTION on a maximized window. It says nothing about whether
+  // Windows still sends that: that takes a real mouse.
   if (process.platform === 'win32') {
     const hwnd = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getNativeWindowHandle().readBigUInt64LE().toString());
-    const doubleClick = () => execFileSync('powershell', ['-NoProfile', '-Command', `(Add-Type -PassThru -Namespace W -Name U -MemberDefinition '[DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);')::PostMessage([IntPtr]${hwnd}, 0x112, [IntPtr]0xF032, [IntPtr]0)`]);
+    const doubleClick = (command) => execFileSync('powershell', ['-NoProfile', '-Command', `(Add-Type -PassThru -Namespace W -Name U -MemberDefinition '[DllImport("user32.dll")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);')::PostMessage([IntPtr]${hwnd}, 0x112, [IntPtr]${command}, [IntPtr]0)`]);
     const maximized = (want) => until(() => page.evaluate((w) => document.documentElement.hasAttribute('data-maximized') === w, want), `maximized: ${want}`);
-    doubleClick();
+    doubleClick(0xF032);
     await maximized(true);
-    doubleClick();
+    doubleClick(0xF122);
     await maximized(false);
     step('double click on the title row: maximized and back');
   }
