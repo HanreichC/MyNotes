@@ -211,7 +211,6 @@ Renderer mit `sandbox` und `contextIsolation`, kein Node im Renderer, strenge CS
 **Stand 2026-11-04:** Schritte 1 bis 8 sind umgesetzt. Unit-Tests und `tests/e2e.mjs` laufen unter Windows 11 und im Arch-Container, jeweils auch gegen die gepackte App. Offen, weil nur am echten Gerät prüfbar:
 
 - Fenstergröße mit der echten Maus ändern. Windows meldet die Randzonen korrekt, der Zug selbst ist ungetestet.
-- Lauf auf CachyOS unter Wayland mit echter GPU. Getestet ist Arch unter Xvfb.
 - Stromausfall (§ 3.6).
 - Update per MSI über eine ältere Version und die erste Installation auf einem frischen Rechner. Das MSI selbst ist gebaut, und sein entpackter Inhalt besteht den End-to-End-Test.
 

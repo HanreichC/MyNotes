@@ -21,7 +21,7 @@ The tabs of Notepad++ and the structure of a wiki, with a Markdown editor like N
 </div>
 
 > [!NOTE]
-> MyNotes is a personal project in active development. It is built on Windows 11 and tested there and in an Arch Linux container, but it has not run on a real CachyOS desktop yet. The interface is in English or German.
+> MyNotes is a personal project in active development. It runs on Windows 11 and CachyOS, and the automated tests run on Windows 11 and in an Arch Linux container. The interface is in English or German.
 
 > [!WARNING]
 > **This project is vibe-coded.** The code was written with an AI coding assistant. Expect rough edges, and read the code before you rely on it. Set up a second backup location before you trust it with anything you can't lose.
@@ -264,7 +264,7 @@ npm run e2e   # the real app in a real window
 ## What doesn't work (yet).
 
 - Absolute safety doesn't exist. In a power cut, the last 150 ms of typing can be missing. If the disk dies and no second backup location is set up, your notes die with it. MyNotes also can't detect an SSD that confirms a flush it hasn't done. The kill test proves crash safety. Proving power-loss safety would take pulling the plug on real hardware.
-- CachyOS on a desktop with Wayland and a real GPU is untested, only Arch under Xvfb so far. Resizing the window with a real mouse is untested too: Windows reports the edges correctly, but nobody has dragged one yet.
+- Resizing the window with a real mouse is untested too: Windows reports the edges correctly, but nobody has dragged one yet.
 - Text typed in the first few milliseconds after `Ctrl+T`, before the new tab exists, lands in the previous tab.
 - The glass has blur, tint and rim, but not the refracting lens of MyPods and MyCAD, which comes from their Qt shader.
 - Macros, hex view, plugins and links between notes aren't implemented. They come if they turn out to be missed. Comparing shows differences but can't copy a change to the other side with one click yet.
