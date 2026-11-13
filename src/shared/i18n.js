@@ -220,6 +220,12 @@ export const EN = {
   kleinbuchstaben: 'lowercase',
   'Papierkorb öffnen …': 'Open Trash …',
   'Zeilenumbruch umschalten': 'Toggle Line Wrap',
+  'Rechtschreibprüfung einschalten': 'Turn On Spell Check',
+  'Rechtschreibprüfung ausschalten': 'Turn Off Spell Check',
+  Rechtschreibung: 'Spelling',
+  'Rechtschreibung in diesem Dokument prüfen, Deutsch und Englisch': 'Check spelling in this document, German and English',
+  'Keine Vorschläge': 'No Suggestions',
+  '„{word}“ ins Wörterbuch aufnehmen': 'Add “{word}” to Dictionary',
 
   // ---------------------------------------------------------------- search, trash, history
   Suchbegriff: 'Search Term',

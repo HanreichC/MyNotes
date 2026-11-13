@@ -13,6 +13,7 @@ const $ = (id) => document.getElementById(id);
 const RICH_LIMIT = 2 * 1024 * 1024; // above this the WYSIWYG view gets slow: open the source instead
 const isMd = (doc) => /^\.(md|markdown)$/i.test(doc.ext);
 const isJsonFile = (doc) => /^\.json$/i.test(doc.ext);
+const isProse = (doc) => /^(\.(md|markdown|txt))?$/i.test(doc.ext); // where spelling can be checked: not in code or JSON
 document.documentElement.dataset.platform = window.api.platform; // on Windows the system draws the window's corners and edge
 
 const state = {
@@ -177,6 +178,7 @@ function ensureEditor(tab) {
     tab.editor = code();
   }
   if (tab.cursor) tab.editor.setCursor(tab.cursor);
+  tab.editor.setSpellcheck(spellOn(tab));
 }
 
 async function switchMode(tab, mode) {
@@ -523,9 +525,38 @@ function paintStatus() {
   $('st-mode').disabled = !md || comparing(tab);
   $('st-mode').title = !md ? '' : comparing(tab) ? t('Beim Vergleichen zeigt jede Notiz ihren Quelltext') : t('Zwischen Live-Ansicht und Quelltext wechseln (Strg+/)');
   $('st-format').hidden = !isJsonFile(tab.doc);
+  const spell = $('st-spell');
+  spell.hidden = !isProse(tab.doc);
+  spell.setAttribute('aria-pressed', String(spellOn(tab)));
+  spell.innerHTML = spellOn(tab) ? icon('check') : '';
+  spell.append(t('Rechtschreibung'));
+  spell.title = t('Rechtschreibung in diesem Dokument prüfen, Deutsch und Englisch');
   const enc = { 'utf-8': 'UTF-8', 'utf-16le': 'UTF-16 LE', 'utf-16be': 'UTF-16 BE', 'windows-1252': 'Windows-1252' }[tab.doc.encoding];
   $('st-enc').textContent = tab.doc.bom ? `${enc} BOM` : enc;
   $('st-eol').textContent = { '\n': 'LF', '\r\n': 'CRLF', '\r': 'CR' }[tab.doc.eol];
+}
+
+// ---------------------------------------------------------------- spelling, per document
+
+/** A brand-new note has no path until its first save, so until then its tab remembers the choice. */
+const spellKey = (doc) => doc.path ?? doc.external;
+const spellOn = (tab) => isProse(tab.doc) && (spellKey(tab.doc) ? !!state.settings.spellcheck?.[spellKey(tab.doc)] : !!tab.spellUnsaved);
+
+async function setSpelling(tab, on) {
+  const key = spellKey(tab.doc);
+  if (key) state.settings.spellcheck = { ...state.settings.spellcheck, [key]: on };
+  else tab.spellUnsaved = on;
+  tab.editor?.setSpellcheck(spellOn(tab)); // Chromium then checks the whole text, not only what gets typed
+  if (tab.id === state.activeId) paintStatus();
+  if (key) try { state.settings.spellcheck = await api.setSpellcheck(key, on); } catch (e) { failed(e); }
+}
+
+function spellingMenu({ word, suggestions, x, y }) {
+  menu({ x, y }, [
+    ...(suggestions.length ? suggestions.map((s) => ({ label: s, run: () => api.replaceMisspelling(s) })) : [{ label: t('Keine Vorschläge'), disabled: true }]),
+    { separator: true },
+    { label: t('„{word}“ ins Wörterbuch aufnehmen', { word }), run: () => api.addToDictionary(word) },
+  ]);
 }
 
 async function changeFormat(fmt) {
@@ -880,6 +911,7 @@ function commands() {
       { label: t('Nächster Unterschied'), hint: keys('Alt+↓'), run: () => jumpToDifference(1) },
       { label: t('Voriger Unterschied'), hint: keys('Alt+↑'), run: () => jumpToDifference(-1) },
     ] : []),
+    ...(tab && isProse(tab.doc) ? [{ label: spellOn(tab) ? t('Rechtschreibprüfung ausschalten') : t('Rechtschreibprüfung einschalten'), run: () => setSpelling(tab, !spellOn(tab)) }] : []),
     { label: t('Zeilen sortieren (aufsteigend)'), run: inCode((e) => e.changeLines(lineCommands.sortAsc)) },
     { label: t('Zeilen sortieren (absteigend)'), run: inCode((e) => e.changeLines(lineCommands.sortDesc)) },
     { label: t('Doppelte Zeilen entfernen'), run: inCode((e) => e.changeLines(lineCommands.unique)) },
@@ -1185,6 +1217,8 @@ api.onEvent((e) => {
     else if (e.state === 'durable') setSaveState(tab, 'durable');
   } else if (e.type === 'tree') refreshTreeSoon();
   else if (e.type === 'notices') pullNotices();
+  else if (e.type === 'misspelled') spellingMenu(e);
+  else if (e.type === 'spellcheck') state.settings.spellcheck = e.map; // a note moved: its 'meta' comes right after and paints it
   else if (e.type === 'closed') dropTab(e.id);
   else if (e.type === 'meta') {
     const tab = state.tabs.find((t) => t.id === e.doc.id);
@@ -1193,6 +1227,8 @@ api.onEvent((e) => {
     const text = tab.doc.text;
     tab.doc = { ...e.doc, text };
     tab.editor?.setRename?.(e.doc.name);
+    if (tab.spellUnsaved && spellKey(tab.doc)) { tab.spellUnsaved = false; setSpelling(tab, true); } // its first save gave it a path
+    tab.editor?.setSpellcheck(spellOn(tab)); // a .txt can become a .json
     if (wasMd !== isMd(tab.doc)) switchMode(tab, isMd(tab.doc) ? 'rich' : 'code');
     paintTabs();
     paintTree();
@@ -1334,6 +1370,12 @@ function wire() {
   $('st-mode').addEventListener('click', () => {
     const tab = activeTab();
     if (tab && isMd(tab.doc) && !comparing(tab)) { tab.forceRich = tab.mode === 'code'; switchMode(tab, tab.mode === 'rich' ? 'code' : 'rich'); }
+  });
+  $('st-spell').addEventListener('click', () => {
+    const tab = activeTab();
+    if (!tab) return;
+    setSpelling(tab, !spellOn(tab));
+    tab.editor?.focus();
   });
   $('st-enc').addEventListener('click', (e) => {
     const d = activeTab()?.doc;

@@ -10,7 +10,7 @@ const call = (name) => async (...args) => {
 const api = {};
 for (const name of ['docs', 'notices', 'create', 'openNote', 'openPath', 'openFile', 'update', 'commit', 'close', 'setFormat', 'setExtension',
   'tree', 'createFolder', 'createNote', 'readForConvert', 'createBelow', 'move', 'setOrder', 'trash', 'listTrash', 'restoreTrash', 'emptyTrash', 'history', 'readVersion',
-  'saveImage', 'search', 'reveal', 'openLink', 'session', 'saveSession', 'settings', 'setSettings', 'chooseFolder', 'changeVault', 'setBackup', 'version']) {
+  'saveImage', 'search', 'reveal', 'openLink', 'session', 'saveSession', 'settings', 'setSettings', 'setSpellcheck', 'replaceMisspelling', 'addToDictionary', 'chooseFolder', 'changeVault', 'setBackup', 'version']) {
   api[name] = call(name);
 }
 api.win = (what) => ipcRenderer.send('win', what);

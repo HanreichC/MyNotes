@@ -373,7 +373,7 @@ export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmp
       TabKey,
     ],
     editorProps: {
-      attributes: { class: 'prose', 'aria-label': t('Notiz'), role: 'textbox', 'aria-multiline': 'true' },
+      attributes: { class: 'prose', 'aria-label': t('Notiz'), role: 'textbox', 'aria-multiline': 'true', spellcheck: 'false' },
       handleKeyDown: (_view, e) => {
         if (slash?.key(e)) { e.preventDefault(); return true; }
         if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'v') { pasteAsCode = true; }
@@ -442,6 +442,10 @@ export function createMdEditor({ parent, text, onChange, onCursor, onJsonIntoEmp
     focus: () => editor.view.focus(), // at once: commands.focus() waits a frame, and keys typed right after Ctrl+T would miss
     destroy() { slash.destroy(); toolbar.destroy(); editor.destroy(); host.remove(); },
     setWrap() {},
+    setSpellcheck(on) {
+      const props = editor.options.editorProps;
+      editor.setOptions({ editorProps: { ...props, attributes: { ...props.attributes, spellcheck: String(on) } } });
+    },
     position() {
       // One line per block and hard break. textContent would glue paragraphs together and count their edges as one word.
       const { doc } = editor.state;

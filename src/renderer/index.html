@@ -6,7 +6,7 @@
 <title>MyNotes</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body spellcheck="false"><!-- only an editor whose document has it switched on checks spelling -->
 <div id="window">
   <!-- #titlebar stays before #sidebar: Chromium takes a scrolled #tab-list's no-drag area unclipped, so it also covers the sidebar's head unless that comes later. -->
   <header id="titlebar">
@@ -56,6 +56,7 @@
       <span id="st-right">
         <span id="st-pos"></span>
         <button id="st-format" class="st-btn" title="JSON formatieren (Strg+Alt+J)" hidden>Formatieren</button>
+        <button id="st-spell" class="st-btn" aria-pressed="false" hidden></button>
         <button id="st-mode" class="st-btn"></button>
         <button id="st-enc" class="st-btn"></button>
         <button id="st-eol" class="st-btn"></button>

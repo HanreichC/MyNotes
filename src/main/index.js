@@ -1,6 +1,6 @@
 // The Electron main process: window, IPC, lifecycle. Everything about keeping text safe lives in store.js.
 
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, screen, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, net, protocol, screen, session, shell } from 'electron';
 import { existsSync, watch } from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -23,6 +23,7 @@ const sessionFile = path.join(dataDir, 'session.json');
 const DEFAULTS = {
   vault: process.env.MYNOTES_VAULT ?? path.join(os.homedir(), 'MyNotes'), backup: null, theme: 'auto', contrast: false,
   transparency: false, motion: false, glass: 0.5, fontSize: 14, wrap: true, fullWidth: false, jsonIndent: 2, sidebarWidth: 232, sidebarHidden: false, bounds: null, maximized: false, language: 'auto',
+  spellcheck: {}, // the documents to check, by path in the notes folder or full path outside it
 };
 
 let settings;
@@ -88,7 +89,7 @@ function createWindow() {
       :{ transparent: true, backgroundColor: '#00000000' }),
     webPreferences: {
       preload: path.join(here, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false,
-      spellcheck: false, // on Linux this downloads dictionaries from Google, and notes stay on this machine
+      spellcheck: true, // only where an editor asks for it (spellcheck="true"), with the dictionaries that came with the app
       backgroundThrottling: false, // the timer that saves what was just typed must not wait up to a second because another window covers this one
     },
   });
@@ -101,6 +102,10 @@ function createWindow() {
   win.webContents.setWindowOpenHandler(({ url }) => { openLink(url); return { action: 'deny' }; });
   // The journal has every acknowledged change, so a crashed window just comes back with its tabs.
   win.webContents.on('render-process-gone', () => { if (!quitting) win.reload(); });
+  // Only a misspelled word gets a menu: the window has no other right-click menu in the text.
+  win.webContents.on('context-menu', (_e, p) => {
+    if (p.misspelledWord) send({ type: 'misspelled', word: p.misspelledWord, suggestions: p.dictionarySuggestions, x: p.x, y: p.y });
+  });
 
   const state = () => send({ type: 'window', maximized: win.isMaximized(), focused: win.isFocused() });
   win.webContents.on('did-finish-load', state); // after a reload too, or a maximized window gets round corners
@@ -139,6 +144,33 @@ async function fixPinnedIcons(dir, exe) {
       if (link.target.toLowerCase() === exe.toLowerCase() && link.icon !== exe) shell.writeShortcutLink(file, 'update', { icon: exe, iconIndex: 0 });
     } catch { /* not a shortcut, or not ours to change */ }
   }
+}
+
+/**
+ * German and English at once, and never online: Chromium would download its dictionaries from Google. It finds them in place
+ * instead, and if it looked for one anyway, its download address leads nowhere. On Windows the system checks the languages it knows.
+ */
+async function setupSpelling() {
+  const dir = path.join(dataDir, 'Dictionaries');
+  await fs.mkdir(dir, { recursive: true });
+  for (const name of ['de-DE-3-0.bdic', 'en-US-10-2.bdic']) {
+    const from = path.join(here, 'dictionaries', name);
+    const to = path.join(dir, name);
+    const size = async (f) => (await fs.stat(f).catch(() => null))?.size;
+    if (await size(to) !== await size(from)) await fs.copyFile(from, to); // also replaces a copy cut short
+  }
+  session.defaultSession.setSpellCheckerDictionaryDownloadURL('http://127.0.0.1:9/');
+  session.defaultSession.setSpellCheckerLanguages(['de-DE', 'en-US']);
+}
+
+/** A note moved or renamed, also by its title: its spelling setting goes with it, before the window hears of the new path. */
+function moveSpelling(from, to) {
+  const map = settings.spellcheck;
+  const keys = Object.keys(map).filter((k) => k === from || k.startsWith(`${from}/`));
+  if (!keys.length) return;
+  for (const k of keys) { delete map[k]; map[to + k.slice(from.length)] = true; }
+  send({ type: 'spellcheck', map });
+  saveSettings().catch(() => {});
 }
 
 const timeout = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -224,6 +256,15 @@ function registerIpc() {
   handle('saveSession', (s) => atomicWrite(sessionFile, Buffer.from(JSON.stringify(s))));
 
   handle('settings', () => settings);
+  handle('setSpellcheck', async (key, on) => {
+    if (typeof key !== 'string' || !key) throw new Error(t('Nicht erlaubt.'));
+    if (on) settings.spellcheck[key] = true;
+    else delete settings.spellcheck[key];
+    await saveSettings();
+    return settings.spellcheck;
+  });
+  handle('replaceMisspelling', (word) => win.webContents.replaceMisspelling(String(word)));
+  handle('addToDictionary', (word) => { session.defaultSession.addWordToSpellCheckerDictionary(String(word)); });
   handle('version', () => app.getVersion());
   handle('setSettings', async (patch) => {
     for (const k of ['theme', 'contrast', 'transparency', 'motion', 'glass', 'fontSize', 'wrap', 'fullWidth', 'jsonIndent', 'sidebarWidth', 'sidebarHidden', 'language']) {
@@ -297,11 +338,12 @@ app.on('window-all-closed', () => quit());
 
 await app.whenReady();
 await loadSettings();
-store = new Store({ dataDir, vault: settings.vault, backup: settings.backup, onEvent: send });
+store = new Store({ dataDir, vault: settings.vault, backup: settings.backup, onEvent: (e) => (e.type === 'moved' ? moveSpelling(e.from, e.to) : send(e)) });
 await store.start();
 Menu.setApplicationMenu(null); // the default menu's accelerators (Ctrl+R reload, Ctrl+W close) would act behind our back
 registerProtocol();
 registerIpc();
+await setupSpelling().catch((e) => console.error('spelling:', e)); // without it the notes still open
 createWindow();
 watchVault();
 store.syncBackup();

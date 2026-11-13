@@ -109,9 +109,11 @@ const tabKey = {
 function codeSetup({ wrap, onChange, onCursor, onPaste }) {
   const wrapping = new Compartment();
   const language = new Compartment();
+  const spelling = new Compartment();
   return {
     wrapping,
     language,
+    spelling,
     extensions: [
       fileIndent,
       Prec.high(keymap.of([
@@ -130,6 +132,7 @@ function codeSetup({ wrap, onChange, onCursor, onPaste }) {
       german,
       theme,
       language.of([]),
+      spelling.of([]),
       wrapping.of(wrap ? EditorView.lineWrapping : []),
       EditorView.updateListener.of((u) => {
         if (u.docChanged) onChange();
@@ -172,7 +175,7 @@ export function createCompareEditors({ parent, wrap, sides: [left, right], onDif
   };
 }
 
-function editorApi(view, { wrapping, language }, name, destroy) {
+function editorApi(view, { wrapping, language, spelling }, name, destroy) {
   const setLanguage = (fileName) => {
     const found = LanguageDescription.matchFilename(languages, fileName);
     if (!found) { view.dispatch({ effects: language.reconfigure([]) }); return; }
@@ -196,6 +199,7 @@ function editorApi(view, { wrapping, language }, name, destroy) {
     focus: () => view.focus(),
     destroy,
     setWrap: (on) => view.dispatch({ effects: wrapping.reconfigure(on ? EditorView.lineWrapping : []) }),
+    setSpellcheck: (on) => view.dispatch({ effects: spelling.reconfigure(on ? EditorView.contentAttributes.of({ spellcheck: 'true' }) : []) }),
     position() {
       const head = view.state.selection.main.head;
       const line = view.state.doc.lineAt(head);

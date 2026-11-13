@@ -879,6 +879,49 @@ try {
   }
   step('settings and display modes');
 
+  // ---------- spelling, per document (an English typo: on Windows the system checks German and gives Electron no suggestions): switched on before the first save, the dictionaries that came with the app, the setting follows the title
+  await page.evaluate(() => { for (const a of ['theme', 'contrast', 'transparency']) delete document.documentElement.dataset[a]; });
+  await newTab(page);
+  await page.keyboard.type('Ein quik Test');
+  assert.equal(await page.getAttribute('.pane:not([hidden]) .prose', 'spellcheck'), 'false', 'off by default');
+  await page.click('#st-spell');
+  assert.equal(await page.getAttribute('#st-spell', 'aria-pressed'), 'true');
+  assert.equal(await page.getAttribute('.pane:not([hidden]) .prose', 'spellcheck'), 'true');
+  const spellSettings = async () => JSON.parse(await fs.readFile(path.join(data, 'settings.json'), 'utf8')).spellcheck;
+  await until(async () => (await spellSettings())['Eingang/Ein quik Test.md'], 'the setting saved under the path of the first save');
+  const wordAt = (word) => page.evaluate((w) => {
+    const walk = document.createTreeWalker(document.querySelector('.pane:not([hidden]) .prose'), NodeFilter.SHOW_TEXT);
+    while (walk.nextNode()) {
+      const i = walk.currentNode.data.indexOf(w);
+      if (i < 0) continue;
+      const r = document.createRange();
+      r.setStart(walk.currentNode, i);
+      r.setEnd(walk.currentNode, i + w.length);
+      const b = r.getBoundingClientRect();
+      return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+    }
+    return null;
+  }, word);
+  await until(async () => { // Chromium checks a moment after the switch
+    const at = await wordAt('quik');
+    await page.mouse.click(at.x, at.y, { button: 'right' });
+    const found = await page.waitForSelector('.float-menu button:has-text("quick")', { timeout: 500 }).catch(() => null);
+    if (!found) await page.keyboard.press('Escape');
+    return found;
+  }, 'a menu with suggestions on the misspelled word', 10_000);
+  assert.ok(await page.$('.float-menu button:has-text("ins Wörterbuch aufnehmen")'));
+  await shot(page, '9-spelling');
+  await page.click('.float-menu button:has-text("quick")');
+  await until(async () => (await page.textContent('.pane:not([hidden]) .prose')).includes('Ein quick Test'), 'the suggestion replaced the word');
+  await until(async () => {
+    const s = await spellSettings();
+    return s['Eingang/Ein quick Test.md'] && !s['Eingang/Ein quik Test.md'];
+  }, 'the setting followed the new title');
+  await page.click('#st-spell');
+  await until(async () => !(await spellSettings())['Eingang/Ein quick Test.md'], 'switched off again');
+  assert.equal(await page.getAttribute('.pane:not([hidden]) .prose', 'spellcheck'), 'false');
+  step('spelling: per document, suggestions on right click, the setting follows a new title');
+
   // ---------- the language: the window loads again in it, every tab comes back, and the settings are open again
   await page.evaluate(() => { for (const a of ['theme', 'contrast', 'transparency']) delete document.documentElement.dataset[a]; });
   const tabCount = (await tabNames(page)).length;

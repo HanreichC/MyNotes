@@ -207,6 +207,8 @@ svg { display: block; }
 #st-pos { padding: 0 var(--ms-space-s); }
 .st-btn { min-height: var(--ms-size-hit-min-desktop); padding: 0 var(--ms-space-s); border: 0; border-radius: var(--ms-radius-control); background: transparent; font: inherit; color: inherit; font-variant-numeric: inherit; }
 .st-btn:hover:not(:disabled) { background: var(--ms-color-fill-tertiary); color: var(--ms-color-label-primary); }
+#st-spell { display: inline-flex; align-items: center; gap: var(--ms-space-xxs); }
+#st-spell > svg { width: var(--ms-size-icon-s); height: var(--ms-size-icon-s); color: var(--ms-color-accent-text); }
 
 /* ---------------------------------------------------------------- what floats above */
 .overlay { position: fixed; inset: 0; z-index: 50; }

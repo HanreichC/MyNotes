@@ -847,6 +847,7 @@ export class Store {
     await fs.mkdir(path.dirname(this.#abs(dest)), { recursive: true });
     await renameRetry(this.#abs(rel), this.#abs(dest));
     await syncDir(path.dirname(this.#abs(dest)));
+    this.emit({ type: 'moved', from: rel, to: dest });
 
     const historyFrom = path.join(this.historyDir, 'notes', ...rel.split('/'));
     const historyTo = path.join(this.historyDir, 'notes', ...dest.split('/'));

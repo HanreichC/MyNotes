@@ -127,7 +127,7 @@ Most formatters parse the JSON and print it back, which rounds `1234567890123456
 
 ## Still Notepad++ at heart.
 
-Everything that isn't Markdown opens in the code editor, built on CodeMirror, which leaves your text exactly as it is. Syntax highlighting covers 143 languages, with line numbers and folding. Encoding and line endings are kept, and you can change them in the status bar (UTF-8, UTF-16, Windows-1252, LF, CRLF, CR). Open any file with `Ctrl+O`, by drag and drop or from the command line.
+Everything that isn't Markdown opens in the code editor, built on CodeMirror, which leaves your text exactly as it is. Syntax highlighting covers 143 languages, with line numbers and folding. Encoding and line endings are kept, and you can change them in the status bar (UTF-8, UTF-16, Windows-1252, LF, CRLF, CR). Spelling is switched on per note in the status bar too, German and English at once. Switching it on checks the whole note, not only what you type next, and a right click on an underlined word offers corrections. The dictionaries come with the app, so nothing goes online. Open any file with `Ctrl+O`, by drag and drop or from the command line.
 
 The main shortcuts are below. `F1` or `Keyboard Shortcuts` in the sidebar shows all of them in the app.
 
@@ -200,6 +200,7 @@ The settings (`Ctrl+,`) also hold the language (English, German, or the system's
 | Storage | Plain files in a folder you choose |
 | Encodings | UTF-8, UTF-16 LE and BE, Windows-1252, with LF, CRLF or CR |
 | File size | Up to 128 MB; Markdown above 2 MB opens as source |
+| Spelling | German and English, per note, Hunspell dictionaries included (on Windows the system checks German) |
 | Runtime | Electron 45, sandboxed window, no network requests of its own |
 | License | GPL-3.0 |
 
@@ -272,6 +273,7 @@ npm run e2e   # the real app in a real window
 - The history of a note only grows until the note is deleted for good. Notes are small, but nothing thins it out yet.
 - Pasted images stay in `.mynotes/assets` after the note that used them is deleted.
 - Search skips files above 5 MB and stops at 500 hits.
+- On Windows, Windows itself checks German and gives Electron no suggestions. A misspelled German word is underlined, but the right click only offers English corrections, or none.
 
 <br>
 
