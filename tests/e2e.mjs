@@ -879,16 +879,18 @@ try {
   }
   step('settings and display modes');
 
-  // ---------- spelling, per document (an English typo: on Windows the system checks German and gives Electron no suggestions): switched on before the first save, the dictionaries that came with the app, the setting follows the title
+  // ---------- spelling, per document: switched on before the first save, the dictionaries that came with the app, the setting follows the title.
+  // Windows checks the languages it has itself and gives Electron no suggestions for them, so what is offered depends on the machine:
+  // English ones on a German Windows, German ones on GitHub's English runner. Hence a typo both dictionaries correct, and the first offer.
   await page.evaluate(() => { for (const a of ['theme', 'contrast', 'transparency']) delete document.documentElement.dataset[a]; });
   await newTab(page);
-  await page.keyboard.type('Ein quik Test');
+  await page.keyboard.type('Ein Fehlr im Test');
   assert.equal(await page.getAttribute('.pane:not([hidden]) .prose', 'spellcheck'), 'false', 'off by default');
   await page.click('#st-spell');
   assert.equal(await page.getAttribute('#st-spell', 'aria-pressed'), 'true');
   assert.equal(await page.getAttribute('.pane:not([hidden]) .prose', 'spellcheck'), 'true');
   const spellSettings = async () => JSON.parse(await fs.readFile(path.join(data, 'settings.json'), 'utf8')).spellcheck;
-  await until(async () => (await spellSettings())['Eingang/Ein quik Test.md'], 'the setting saved under the path of the first save');
+  await until(async () => (await spellSettings())['Eingang/Ein Fehlr im Test.md'], 'the setting saved under the path of the first save');
   const wordAt = (word) => page.evaluate((w) => {
     const walk = document.createTreeWalker(document.querySelector('.pane:not([hidden]) .prose'), NodeFilter.SHOW_TEXT);
     while (walk.nextNode()) {
@@ -903,22 +905,23 @@ try {
     return null;
   }, word);
   await until(async () => { // Chromium checks a moment after the switch
-    const at = await wordAt('quik');
+    const at = await wordAt('Fehlr');
     await page.mouse.click(at.x, at.y, { button: 'right' });
-    const found = await page.waitForSelector('.float-menu button:has-text("quick")', { timeout: 500 }).catch(() => null);
+    const found = await page.waitForSelector('.float-menu button:has-text("ins Wörterbuch aufnehmen")', { timeout: 500 }).catch(() => null);
     if (!found) await page.keyboard.press('Escape');
     return found;
-  }, 'a menu with suggestions on the misspelled word', 10_000);
-  assert.ok(await page.$('.float-menu button:has-text("ins Wörterbuch aufnehmen")'));
+  }, 'a menu on the misspelled word', 10_000);
   await shot(page, '9-spelling');
-  await page.click('.float-menu button:has-text("quick")');
-  await until(async () => (await page.textContent('.pane:not([hidden]) .prose')).includes('Ein quick Test'), 'the suggestion replaced the word');
+  const fix = (await page.textContent('.float-menu button:not(:disabled)')).trim();
+  assert.ok(!fix.includes('Wörterbuch'), 'at least one suggestion');
+  await page.click('.float-menu button:not(:disabled)');
+  await until(async () => (await page.textContent('.pane:not([hidden]) .prose')).includes(`Ein ${fix} im Test`), `the suggestion ${fix} replaced the word`);
   await until(async () => {
     const s = await spellSettings();
-    return s['Eingang/Ein quick Test.md'] && !s['Eingang/Ein quik Test.md'];
+    return s[`Eingang/Ein ${fix} im Test.md`] && !s['Eingang/Ein Fehlr im Test.md'];
   }, 'the setting followed the new title');
   await page.click('#st-spell');
-  await until(async () => !(await spellSettings())['Eingang/Ein quick Test.md'], 'switched off again');
+  await until(async () => !(await spellSettings())[`Eingang/Ein ${fix} im Test.md`], 'switched off again');
   assert.equal(await page.getAttribute('.pane:not([hidden]) .prose', 'spellcheck'), 'false');
   step('spelling: per document, suggestions on right click, the setting follows a new title');
 
