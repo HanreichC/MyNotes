@@ -951,6 +951,20 @@ try {
   await page.keyboard.press('Escape');
   step('language: English and back to the system language, nothing lost on the way');
 
+  // ---------- saved on a monitor that is gone by now: the window opens where it can be seen, with its size. Near the end: the app
+  // keeps that place in memory until it quits properly, and every later hard kill and start would open in this size again
+  await kill(app);
+  const settingsFile = path.join(data, 'settings.json');
+  const saved0 = JSON.parse(await fs.readFile(settingsFile, 'utf8').catch(() => '{}'));
+  await fs.writeFile(settingsFile, JSON.stringify({ ...saved0, bounds: { x: 100_000, y: 45, width: 800, height: 560 }, maximized: false }));
+  ({ app, page } = await launch());
+  const placed = await app.evaluate(({ BrowserWindow, screen }) => {
+    const b = BrowserWindow.getAllWindows()[0].getBounds();
+    return { size: [b.width, b.height], seen: screen.getAllDisplays().some(({ workArea: a }) => b.x >= a.x && b.x + 100 <= a.x + a.width && b.y >= a.y && b.y < a.y + a.height) };
+  });
+  assert.deepEqual(placed, { size: [800, 560], seen: true });
+  step('a place saved on an unplugged monitor opens on a screen');
+
   // ---------- another window on top must not slow saving down: Chromium would hold the save timer back to about once a second.
   // Last on purpose: hiding the window must not get to disturb what comes after it.
   await newTab(page);

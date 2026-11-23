@@ -75,11 +75,23 @@ const windowBackground = () => (settings.theme === 'dark' || (settings.theme ===
 
 const toggleMaximize = () => { if (win?.isMaximized()) win.unmaximize(); else win?.maximize(); };
 
+/**
+ * The saved place, as long as its title row is on a screen today. Saved on a monitor that is unplugged since, the window would open
+ * out of sight; then it keeps its size and opens on the main screen.
+ */
+function savedBounds(workArea) {
+  const b = settings.bounds;
+  if (!b) return null;
+  const reachable = screen.getAllDisplays().some(({ workArea: a }) =>
+    Math.min(b.x + b.width, a.x + a.width) - Math.max(b.x, a.x) >= 100 && b.y >= a.y - 20 && b.y + 40 <= a.y + a.height);
+  return reachable ? b : { width: Math.min(b.width, workArea.width - 80), height: Math.min(b.height, workArea.height - 80) };
+}
+
 function createWindow() {
   // A margin on small screens: a transparent window that exactly fills the work area counts as maximized, and has no size to go back to.
   const { workArea } = screen.getPrimaryDisplay();
   win = new BrowserWindow({
-    ...(settings.bounds ?? { width: Math.min(1180, workArea.width - 80), height: Math.min(760, workArea.height - 80) }),
+    ...(savedBounds(workArea) ?? { width: Math.min(1180, workArea.width - 80), height: Math.min(760, workArea.height - 80) }),
     minWidth: 720, minHeight: 480,
     frame: false, title: 'MyNotes', show: false,
     // Windows gives a transparent window no frame styles: no snapping to the screen edges, no animations, no shadow. So there the
