@@ -6,6 +6,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { _electron as electron } from 'playwright-core';
+import { write } from './handwriting.mjs';
 
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'mynotes-e2e-'));
 const vault = path.join(root, 'vault');
@@ -118,7 +119,7 @@ try {
   await page.click('#tab-new', { button: 'right' });
   await page.waitForSelector('.float-menu');
   const offered = await page.$$eval('.float-menu button', (n) => n.map((x) => x.textContent));
-  assert.deepEqual(offered, ['Neuer Tab', 'Neue JSON-Datei', 'Datei öffnen …', 'Notiz öffnen …', 'Geschlossenen Tab zurückholen', 'Alle Befehle …']);
+  assert.deepEqual(offered, ['Neuer Tab', 'Neue JSON-Datei', 'Neues Scribble', 'Datei öffnen …', 'Notiz öffnen …', 'Geschlossenen Tab zurückholen', 'Alle Befehle …']);
   await shot(page, '0-plus-menu');
   await page.click('.float-menu button:last-child');
   await page.waitForSelector('.float-menu', { state: 'detached' });
@@ -950,6 +951,89 @@ try {
   assert.equal(await page.textContent('#btn-search'), 'In allen Notizen suchen');
   await page.keyboard.press('Escape');
   step('language: English and back to the system language, nothing lost on the way');
+
+  // ---------- scribble with an emulated tablet (docs/PLAN.md § 10): the pen through CDP with pressure, the keys on the tablet
+  // as the main process sends them on Linux and as the Huion driver sends them on Windows
+  await until(async () => { if (!(await page.$('#layer .overlay'))) return true; await page.keyboard.press('Escape'); return false; }, 'nothing open');
+  await page.click('#tab-new', { button: 'right' });
+  await page.click('.float-menu >> text=Neues Scribble');
+  await page.waitForSelector('.pane:not([hidden]) .scribble');
+  const sheetAt = await page.$eval('.pane:not([hidden]) .scribble-sheet', (n) => { const r = n.getBoundingClientRect(); return { x: r.left, y: r.top }; });
+  const cdp = await page.context().newCDPSession(page);
+  const pen = (type, [x, y], extra = {}) => cdp.send('Input.dispatchMouseEvent', { type, x: sheetAt.x + x, y: sheetAt.y + y, pointerType: 'pen', ...extra });
+  const penStroke = async (pts) => {
+    await pen('mousePressed', pts[0], { button: 'left', buttons: 1, clickCount: 1, force: 0.9 });
+    for (const p of pts.slice(1)) await pen('mouseMoved', p, { button: 'left', buttons: 1, force: 0.95 });
+    await pen('mouseReleased', pts.at(-1), { button: 'left', buttons: 0, clickCount: 1 });
+  };
+  const inkNow = () => page.$$eval('.pane:not([hidden]) .scribble-ink > g', (n) => n.map((g) => g.dataset.points));
+  const tool = () => page.$eval('.pane:not([hidden]) .scribble', (n) => n.dataset.tool);
+  const tabletKey = (key) => app.evaluate(({ BrowserWindow }, k) => {
+    const w = BrowserWindow.getAllWindows()[0].webContents;
+    w.send('event', { type: 'tablet-key', key: k, down: true });
+    w.send('event', { type: 'tablet-key', key: k, down: false });
+  }, key);
+  const ink = write(['Welle 25 mm'], 0.6, 1); // the synthetic handwriting of MyCAD's read check, 3.5 px per mm
+  for (const st of ink) await penStroke(st.map((p) => [80 + p.x * 3.5, 160 - p.y * 3.5]));
+  const rawInk = await inkNow();
+  assert.equal(rawInk.length, ink.length);
+  await until(async () => (await inkNow()).some((d, i) => d !== rawInk[i]), 'tidied a second after the pen left the sheet', 15000);
+  const scribbleFile = await until(async () => (await fs.readdir(path.join(vault, 'Eingang'))).find((n) => /^We.*\.svg$/.test(n)), 'named after its handwriting', 15000);
+  assert.match(await read(`Eingang/${scribbleFile}`), /<desc>We[^<]*25[^<]*<\/desc>/);
+  await shot(page, '6-scribble');
+  await page.keyboard.press('Control+z');
+  await until(async () => JSON.stringify(await inkNow()) === JSON.stringify(rawInk), 'Ctrl+Z brings back the raw handwriting');
+  await page.keyboard.press('Control+y');
+  await until(async () => JSON.stringify(await inkNow()) !== JSON.stringify(rawInk), 'and Ctrl+Y the tidy one');
+  step('scribble: handwriting with the pen is tidied and read, the file named after it, Ctrl+Z gives the raw writing');
+
+  // a key on the tablet (suggestion: key 2 eraser), KDE's shortcut right after it is not heard; wiping erases, as one undo step
+  await tabletKey('pad2');
+  await until(async () => (await tool()) === 'eraser', 'key 2 is the eraser');
+  await page.keyboard.press('e'); // what KDE sends for the same key, right after it
+  assert.equal(await tool(), 'eraser');
+  await new Promise((r) => setTimeout(r, 200));
+  const inkCount = (await inkNow()).length;
+  await penStroke(Array.from({ length: 40 }, (_, i) => [60 + i * 6, 160 - 2 * 3.5]));
+  assert.ok((await inkNow()).length < inkCount, 'wiped strokes are gone');
+  await page.keyboard.press('Control+z');
+  await until(async () => (await inkNow()).length === inkCount, 'one undo brings all of them back');
+  await page.keyboard.press('Control+Alt+Shift+F2'); // the Huion driver on Windows: key 2 again, back to the pen
+  assert.equal(await tool(), 'pen');
+  await page.keyboard.press('Control+Alt+Shift+F3');
+  assert.equal(await tool(), 'select');
+  await page.keyboard.press('v');
+  assert.equal(await tool(), 'pen');
+  // the lower pen key (suggestion: pan) drags the sheet while held, the pen in the air
+  const viewBefore = await page.$eval('.pane:not([hidden]) .scribble-sheet', (n) => n.getAttribute('viewBox'));
+  await pen('mousePressed', [300, 300], { button: 'right', buttons: 2, clickCount: 1 });
+  for (let i = 1; i <= 10; i++) await pen('mouseMoved', [300 + i * 10, 300], { button: 'right', buttons: 2 });
+  await pen('mouseReleased', [400, 300], { button: 'right', buttons: 0, clickCount: 1 });
+  assert.notEqual(await page.$eval('.pane:not([hidden]) .scribble-sheet', (n) => n.getAttribute('viewBox')), viewBefore);
+  assert.equal((await inkNow()).length, inkCount, 'the pen key draws nothing');
+  // holding still at the end of a stroke makes a clean shape
+  await pen('mousePressed', [500, 400], { button: 'left', buttons: 1, clickCount: 1, force: 0.9 });
+  for (let i = 1; i <= 30; i++) await pen('mouseMoved', [500 + i * 6, 400 + Math.sin(i) * 2], { button: 'left', buttons: 1, force: 0.9 });
+  await new Promise((r) => setTimeout(r, 700));
+  await pen('mouseReleased', [680, 400], { button: 'left', buttons: 0, clickCount: 1 });
+  await until(async () => (await page.$$eval('.pane:not([hidden]) .scribble-ink > g[data-kind="1"]', (n) => n.length)) === 1, 'a straight line');
+  step('scribble: tablet keys from Linux and Windows, the KDE shortcut ignored, eraser, pen key pans, hold makes a line');
+
+  // Settings › Tablet: a key lights its row; an unknown model gets a row for each key pressed
+  await page.keyboard.press('Control+,');
+  await page.waitForSelector('.tablet-picture');
+  await tabletKey('pad3');
+  await page.waitForSelector('.tablet-picture [data-key="pad3"]');
+  assert.equal(await page.$$eval('.tablet-picture [data-key^="pad"]', (n) => n.length), 3);
+  await new Promise((r) => setTimeout(r, 200)); // a key right after a tablet key counts as its KDE shortcut
+  await page.keyboard.press('Escape');
+  await until(async () => JSON.parse(await fs.readFile(path.join(data, 'settings.json'), 'utf8')).tabletKeysSeen === 3, 'keys seen saved');
+  await page.keyboard.press('Control+Shift+f');
+  await page.fill('input[aria-label="Suchbegriff"]', '25');
+  await page.waitForSelector(`.search-hit >> text=${scribbleFile.slice(0, -4)}`);
+  assert.equal(await page.$$eval('.search-hit', (n) => n.filter((x) => x.textContent.includes('.svg') || x.textContent.includes(scribbleFile.slice(0, -4))).length), 1, 'only the handwriting is searched, not the stroke numbers');
+  await page.keyboard.press('Escape');
+  step('scribble: tablet settings light the key pressed, the search finds the handwriting');
 
   // ---------- saved on a monitor that is gone by now: the window opens where it can be seen, with its size. Near the end: the app
   // keeps that place in memory until it quits properly, and every later hard kill and start would open in this size again

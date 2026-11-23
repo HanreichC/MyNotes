@@ -265,3 +265,37 @@ svg { display: block; }
   .overlay--scrim > *, .float-menu, .toolbar, .slash-menu { animation-name: fade; }
 }
 :root[data-motion="reduce"] .overlay--scrim > *, :root[data-motion="reduce"] .float-menu, :root[data-motion="reduce"] .toolbar, :root[data-motion="reduce"] .slash-menu { animation-name: fade; }
+
+/* ---------------------------------------------------------------- scribble (docs/PLAN.md § 10, as in MyCAD)
+   Paper is the app's background (L0): light the cool near-white from the top, dark the neutral dark from the bottom. The
+   glass palette stands out from it, and the ink lies on a neutral ground. */
+.scribble { position: relative; flex: 1; min-height: 0; overflow: hidden; outline: none; touch-action: none; cursor: crosshair;
+  background-color: var(--ms-color-background-top); background-image: radial-gradient(circle, var(--ms-color-label-tertiary) 0.9px, transparent 1.1px); }
+:root[data-theme="dark"] .scribble { background-color: var(--ms-color-background-bottom); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .scribble { background-color: var(--ms-color-background-bottom); } }
+.scribble[data-tool="select"] { cursor: default; }
+.scribble[data-tool="select"].is-over-selection { cursor: move; }
+.scribble[data-tool="text"] { cursor: text; }
+.scribble-sheet { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.scribble-glow { fill: none; stroke: var(--ms-color-accent); stroke-opacity: 0.35; stroke-linecap: round; stroke-linejoin: round; }
+.scribble-frame { fill: none; stroke: var(--ms-color-accent-text); stroke-width: calc(1.5px * var(--px)); stroke-dasharray: calc(4px * var(--px)) calc(4px * var(--px)); }
+.scribble-snap, .scribble-caret { fill: none; stroke: var(--ms-color-accent-text); stroke-width: calc(1.5px * var(--px)); }
+.scribble-palette { position: absolute; left: 50%; bottom: var(--ms-space-m); transform: translateX(-50%); z-index: 2; display: flex; align-items: center; gap: var(--ms-space-xxs); padding: var(--ms-space-xs); max-width: calc(100% - 2 * var(--ms-space-m)); overflow-x: auto; }
+.scribble-tool[aria-pressed="true"] { background: var(--ms-color-fill-secondary); color: var(--ms-color-accent-text); }
+.scribble-sep { flex: none; width: 1px; height: 20px; margin: 0 var(--ms-space-xxs); background: var(--ms-color-separator-default); }
+.scribble-color { flex: none; width: var(--ms-size-window-button); height: var(--ms-size-window-button); border: 0; border-radius: var(--ms-radius-capsule); background: transparent; display: grid; place-items: center; }
+.scribble-color::before { content: ''; width: 16px; height: 16px; border-radius: 50%; background: var(--ink); box-shadow: inset 0 0 0 1px var(--ms-color-separator-default); }
+.scribble-color:hover { background: var(--ms-color-fill-tertiary); }
+.scribble-color[aria-pressed="true"]::before { box-shadow: 0 0 0 2px var(--ms-color-background-top), 0 0 0 4px var(--ms-color-accent); }
+.scribble-color[data-color="#1D1D1F"] { --ink: var(--ms-color-label-primary) !important; } /* black ink is the label color, also in dark mode */
+.scribble-actions { position: absolute; z-index: 2; display: flex; align-items: center; gap: var(--ms-space-xxs); padding: var(--ms-space-xs); }
+:root[data-sheet-only] #status { display: none; }
+/* Settings › Tablet: tablet and pen as a drawing, the key just pressed and its row light up */
+.tablet-hero { justify-content: center; }
+.tablet-picture svg { width: 240px; height: 150px; display: block; }
+.tablet-picture .tablet-body { fill: var(--ms-color-fill-tertiary); stroke: var(--ms-color-separator-default); }
+.tablet-picture .tablet-area { fill: none; stroke: var(--ms-color-separator-default); }
+.tablet-picture [data-key] { fill: var(--ms-color-fill-secondary); transition: fill var(--ms-motion-duration-hover) var(--ms-motion-easing-standard); }
+.tablet-picture [data-key].is-lit { fill: var(--ms-color-accent); }
+.ms-row.is-lit { background: var(--ms-color-fill-tertiary); }
+.scribble-type { position: absolute; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; resize: none; pointer-events: none; } /* typing for the Text tool */

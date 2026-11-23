@@ -2,10 +2,13 @@
 import { conversionsFor } from '../shared/convert.js';
 import { keys, language, locale, t } from '../shared/i18n.js';
 import { isJson, JsonError, minifyJson, prettyJson } from '../shared/json.js';
+import { isScribble } from '../shared/scribble-svg.js';
+import { actionFor, Actions as KeyActions, detect as detectTablet, format as formatKeys, Kind as KeyKind, model as tabletModel, Models as TabletModels, padKey, parse as parseKeys } from '../shared/tablet.js';
 import { nameFromText } from '../shared/text.js';
 import { createCodeEditor, createCompareEditors, lineCommands } from './code-editor.js';
 import { icon } from './icons.js';
 import { createMdEditor, isFaithful } from './md-editor.js';
+import { createScribbleEditor } from './scribble.js';
 import { alertDialog, count, el, menu, pick, promptDialog, row, section, sheet } from './ui.js';
 
 const api = window.api;
@@ -13,6 +16,7 @@ const $ = (id) => document.getElementById(id);
 const RICH_LIMIT = 2 * 1024 * 1024; // above this the WYSIWYG view gets slow: open the source instead
 const isMd = (doc) => /^\.(md|markdown)$/i.test(doc.ext);
 const isJsonFile = (doc) => /^\.json$/i.test(doc.ext);
+const isScribbleDoc = (doc) => /^\.svg$/i.test(doc.ext) && isScribble(doc.text);
 const isProse = (doc) => /^(\.(md|markdown|txt))?$/i.test(doc.ext); // where spelling can be checked: not in code or JSON
 document.documentElement.dataset.platform = window.api.platform; // on Windows the system draws the window's corners and edge
 
@@ -124,11 +128,11 @@ function displayName(tab) {
   return tab.doc.name.replace(/\.(md|markdown)$/i, '');
 }
 
-function addTab(doc) {
+function addTab(doc, mode) {
   const existing = state.tabs.find((t) => t.id === doc.id);
   if (existing) return existing;
   const tab = {
-    id: doc.id, doc, editor: null, pane: null, mode: isMd(doc) ? 'rich' : 'code', timer: null, inflight: null,
+    id: doc.id, doc, editor: null, pane: null, mode: mode ?? (isMd(doc) ? 'rich' : isScribbleDoc(doc) ? 'scribble' : 'code'), timer: null, inflight: null,
     lastSent: doc.text, silent: false, saveState: 'durable', title: doc.autoTitle ? nameFromText(doc.text, doc.ext) : null, cursor: null,
   };
   state.tabs.push(tab);
@@ -145,6 +149,14 @@ function ensureEditor(tab) {
   const code = () => createCodeEditor({
     parent: tab.pane, text: tab.doc.text, name: tab.doc.name, wrap: state.settings.wrap, onChange, onCursor, onPaste: () => formatPasted(tab),
   });
+  if (tab.mode === 'scribble') {
+    tab.editor = createScribbleEditor({
+      parent: tab.pane, text: tab.doc.text, onChange, settings: () => state.settings, onPenButton: (key, down) => tabletKey(key, down, false),
+      onSheetOnly: () => setSheetOnly(!document.documentElement.hasAttribute('data-sheet-only')),
+    });
+    if (tab.cursor) tab.editor.setCursor(tab.cursor);
+    return;
+  }
   if (tab.mode === 'rich' && tab.doc.text.length > RICH_LIMIT) tab.mode = 'code';
   if (tab.mode === 'rich') {
     // Whatever goes wrong in the live editor must never keep a note from opening: the source view always works.
@@ -375,9 +387,9 @@ function endTabDrag() {
   if (state.tabsStale) { state.tabsStale = false; paintTabs(); }
 }
 
-async function newTab(opts) {
+async function newTab(opts, mode) {
   try {
-    const tab = addTab(await api.create(opts));
+    const tab = addTab(await api.create(opts), mode);
     activate(tab.id);
     return tab;
   } catch (e) { failed(e); return null; }
@@ -521,7 +533,7 @@ function paintStatus() {
   paintPosition();
   if (!tab) return;
   const md = isMd(tab.doc);
-  $('st-mode').textContent = md ? (tab.mode === 'rich' && !comparing(tab) ? t('Live') : t('Quelltext')) : (tab.doc.ext.slice(1).toUpperCase() || t('Text'));
+  $('st-mode').textContent = tab.mode === 'scribble' ? t('Scribble') : md ? (tab.mode === 'rich' && !comparing(tab) ? t('Live') : t('Quelltext')) : (tab.doc.ext.slice(1).toUpperCase() || t('Text'));
   $('st-mode').disabled = !md || comparing(tab);
   $('st-mode').title = !md ? '' : comparing(tab) ? t('Beim Vergleichen zeigt jede Notiz ihren Quelltext') : t('Zwischen Live-Ansicht und Quelltext wechseln (Strg+/)');
   $('st-format').hidden = !isJsonFile(tab.doc);
@@ -827,6 +839,7 @@ const inCode = (fn) => () => {
 const openCommands = () => [
   { label: t('Neuer Tab'), hint: keys('Strg+T'), run: () => newTab() },
   { label: t('Neue JSON-Datei'), run: () => newTab({ ext: '.json' }) },
+  { label: t('Neues Scribble'), run: () => newTab({ ext: '.svg' }, 'scribble') },
   { label: t('Datei öffnen …'), hint: keys('Strg+O'), run: openFiles },
   { label: t('Notiz öffnen …'), hint: keys('Strg+P'), run: quickOpen },
   { label: t('Geschlossenen Tab zurückholen'), hint: keys('Strg+Umschalt+T'), run: reopenClosed, disabled: !state.closed.length },
@@ -1115,7 +1128,7 @@ function placeBrand(hidden) {
 }
 
 function showSettings() {
-  const { body, close } = sheet(t('Einstellungen'));
+  const { body, close } = sheet(t('Einstellungen'), { onClose: () => { tablet.listener = null; tablet.changed = null; } });
   const s = state.settings;
   const vaultValue = el('span', { class: 'path-value ms-caption ms-secondary' }, s.vault);
   const backupValue = el('span', { class: 'path-value ms-caption ms-secondary' }, s.backup ?? t('Nicht eingerichtet'));
@@ -1181,8 +1194,120 @@ function showSettings() {
         tile: 'code', color: 'controls', label: t('Einzug für JSON'),
         end: picker(() => state.settings.jsonIndent, [{ value: 2, label: t('2 Leerzeichen') }, { value: 4, label: t('4 Leerzeichen') }, { value: 'tab', label: t('Tabulator') }], (v) => setSetting('jsonIndent', v)),
       })),
+    ...penSettings(),
+    ...tabletSettings(),
   );
   return close;
+}
+
+/** A slider for a whole-number setting, saved when it is let go */
+function slider(key, min, max, label) {
+  const pct = (v) => `${((v - min) / (max - min)) * 100}%`;
+  return el('input', {
+    type: 'range', class: 'ms-slider', min, max, step: 1, value: state.settings[key], 'aria-label': label, style: `--_v:${pct(state.settings[key])}`,
+    oninput: (e) => e.target.style.setProperty('--_v', pct(e.target.value)),
+    onchange: (e) => setSetting(key, Number(e.target.value)),
+  });
+}
+
+/** Tidy handwriting in scribbles, as in MyCAD: every step on its own, smoothing also in its strength. */
+function penSettings() {
+  const steps = [
+    ['scribbleTidyStraight', t('Gerade Zeilen')], ['scribbleTidySize', t('Gleiche Größe')], ['scribbleTidySlant', t('Gleiche Schräge')],
+    ['scribbleTidyGaps', t('Gleiche Wortabstände')], ['scribbleTidyWidth', t('Gleichmäßige Strichstärke')],
+  ];
+  const strength = slider('scribbleTidyStrength', 0, 100, t('Stärke'));
+  const smoothing = slider('scribbleTidySmoothing', 1, 30, t('Glätten'));
+  const smooth = switchControl('scribbleTidySmooth', t('Zittern glätten'));
+  const switches = steps.map(([key, label]) => [key, label, switchControl(key, label)]);
+  const enable = () => {
+    const on = !!state.settings.scribbleTidy;
+    for (const n of [strength, smooth, ...switches.map((s) => s[2])]) n.disabled = !on;
+    smoothing.disabled = !on || !state.settings.scribbleTidySmooth;
+  };
+  const main = switchControl('scribbleTidy', t('Schrift aufräumen'));
+  main.addEventListener('change', () => queueMicrotask(enable));
+  smooth.addEventListener('change', () => queueMicrotask(enable));
+  enable();
+  return [
+    ...section(t('Stift & Handschrift'),
+      row({ tile: 'scribble', color: 'controls', label: t('Schrift aufräumen'), hint: t('Eine Sekunde nach dem Absetzen stehen deine Wörter gerade, gleich groß und gleich schräg, in deiner eigenen Schrift. Strg+Z holt die rohe Schrift zurück.'), end: main }),
+      row({ label: t('Stärke'), end: el('span', { class: 'slider-labels ms-caption ms-secondary' }, t('Roh'), strength, t('Ganz')) }),
+      row({ label: t('Zittern glätten'), end: smooth }),
+      row({ label: t('Glätten'), hint: t('Stärker wirkt ruhiger, die Schrift wird dann aber etwas schlechter gelesen.'), end: el('span', { class: 'slider-labels ms-caption ms-secondary' }, t('Leicht'), smoothing, t('Stark')) }),
+      ...switches.map(([, label, sw]) => row({ label, end: sw }))),
+  ];
+}
+
+const KEY_LABELS = {
+  eraser: t('Radierer'), eraserHold: t('Radierer, solange gedrückt'), select: t('Auswählen'), pencil: t('Bleistift'), fineliner: t('Fineliner'),
+  marker: t('Marker'), color: t('Nächste Farbe'), undo: t('Rückgängig'), redo: t('Wiederholen'), sheet: t('Nur das Blatt'), look: t('Blatt einpassen'),
+  pan: t('Blatt verschieben, solange gedrückt'), none: t('Nichts'),
+};
+
+/** Tablet and pen as a drawing: the key just pressed in the accent color, like the hero card in MyCAD. */
+function tabletPicture(keys) {
+  const step = keys > 0 ? Math.min(19, 112 / keys) : 0;
+  const pads = Array.from({ length: keys }, (_, i) => `<rect data-key="pad${i + 1}" x="10" y="${20 + i * step}" width="18" height="${Math.min(16, step - 3)}" rx="4"/>`).join('');
+  return el('div', {
+    class: 'tablet-picture', role: 'img', 'aria-label': t('Tablett und Stift'),
+    html: `<svg viewBox="0 0 240 150"><rect class="tablet-body" x=".5" y="11.5" width="196" height="128" rx="14"/><rect class="tablet-area" x="36" y="23.5" width="148" height="104" rx="8"/>${pads}`
+      + '<rect class="tablet-body" x="214.5" y="11.5" width="18" height="128" rx="9"/>'
+      + '<rect data-key="penHigh" x="219.5" y="44" width="8" height="12" rx="3"/><rect data-key="penLow" x="219.5" y="60" width="8" height="12" rx="3"/></svg>',
+  });
+}
+
+/** Settings › Tablet: model, what every key does, a pressed key lights its row (docs/PLAN.md § 10, MyCAD T1). */
+function tabletSettings() {
+  const s = state.settings;
+  const box = el('div');
+  const chosen = () => tabletModel(s.tabletModel || detectTablet(tablet.pad.name).id);
+  const keysOf = (m) => (m.buttons > 0 ? m.buttons : state.settings.tabletKeysSeen ?? 0);
+  const assign = (key, id) => {
+    const map = parseKeys(state.settings.tabletKeys ?? '');
+    map.set(key, id);
+    setSetting('tabletKeys', formatKeys(map));
+  };
+  const keyRow = (key, label) => row({
+    label,
+    end: picker(() => actionFor(parseKeys(state.settings.tabletKeys ?? ''), key).id, KeyActions.map((a) => ({ value: a.id, label: KEY_LABELS[a.id] ?? a.label })), (id) => assign(key, id)),
+  });
+  const paint = () => {
+    const m = chosen();
+    const keys = keysOf(m);
+    const linux = api.platform === 'linux';
+    const status = tablet.pad.denied ? t('{name}: MyNotes darf die Tasten noch nicht lesen', { name: tablet.pad.name })
+      : tablet.pad.name ? t('Angeschlossen: {name}', { name: tablet.pad.name }) : linux ? t('Kein Tablett angeschlossen') : t('Tasten über den Huion-Treiber');
+    const allow = el('button', { class: 'ms-button', title: t('MyNotes fragt einmal nach deinem Passwort, danach darf es die Tasten von Grafiktabletts lesen (nie Tastaturen)'), onclick: async () => { try { await api.tabletAccess(); } catch (e) { failed(e); } } }, t('Zugriff erlauben'));
+    const picture = tabletPicture(keys);
+    const rows = [];
+    for (let k = 1; k <= keys; k++) rows.push(keyRow(padKey(k), t('Taste {n}', { n: k })));
+    box.replaceChildren(
+      ...section(t('Grafiktablett'),
+        row({ tile: 'tablet', color: 'controls', label: status, hint: linux ? null : t('Im Huion-Treiber für MyNotes je Taste Strg+Alt+Umschalt+F1 bis F6 eintragen, dann tut sie, was hier steht.'), end: tablet.pad.denied ? allow : null }),
+        el('div', { class: 'ms-row tablet-hero' }, picture),
+        row({
+          label: t('Modell'),
+          end: picker(() => chosen().id, TabletModels.map((x) => ({ value: x.id, label: x.id === 'other' ? t('Anderes Modell') : x.label })), (id) => { setSetting('tabletModel', id); paint(); }),
+        })),
+      ...section(t('Tasten am Tablett'), ...(rows.length ? rows : [el('p', { class: 'ms-caption ms-secondary sheet-note' }, t('Noch keine Tasten. Drück jede Taste am Tablett einmal, dann erscheint ihre Zeile hier.'))])),
+      ...section(t('Tasten am Stift'), keyRow('penLow', t('Untere Taste')), keyRow('penHigh', t('Obere Taste'))),
+      el('p', { class: 'ms-caption ms-secondary sheet-note' }, t('Blatt verschieben wirkt, solange die Taste gedrückt ist. Der Radierer schaltet um, ein zweiter Druck zurück. Drück eine Taste, und ihre Zeile leuchtet auf.')),
+      el('div', { class: 'row-buttons sheet-note' }, el('button', { class: 'ms-button', onclick: () => { setSetting('tabletKeys', ''); paint(); } }, t('Vorschlag wiederherstellen'))),
+      ...(linux ? [el('p', { class: 'ms-caption ms-secondary sheet-note' }, t('Legt KDE dieselben Tasten noch auf Tastenkürzel, überhört MyNotes, was KDE direkt danach schickt. In anderen Programmen bleibt die KDE-Belegung.'))] : []),
+    );
+  };
+  // while the settings are open a key only shows which row it is; an unknown model gets a row for every new key
+  tablet.listener = (key, down) => {
+    const n = /^pad(\d+)$/.exec(key)?.[1];
+    if (n && down && chosen().buttons === 0 && Number(n) > (state.settings.tabletKeysSeen ?? 0)) { setSetting('tabletKeysSeen', Number(n)); paint(); }
+    box.querySelector(`.tablet-picture [data-key="${key}"]`)?.classList.toggle('is-lit', down);
+    const label = key === 'penLow' ? t('Untere Taste') : key === 'penHigh' ? t('Obere Taste') : t('Taste {n}', { n });
+    for (const r of box.querySelectorAll('.ms-row')) if (r.querySelector('.ms-row__label')?.firstChild?.textContent === label) r.classList.toggle('is-lit', down);
+  };
+  tablet.changed = paint;
+  paint();
+  return [box];
 }
 
 // ---------------------------------------------------------------- session
@@ -1256,12 +1381,60 @@ api.onEvent((e) => {
     $('win-max').innerHTML = icon(e.maximized ? 'restore' : 'maximize');
   } else if (e.type === 'backup-error') { state.backupError = e.error; paintSave(); }
   else if (e.type === 'backup-ok') { state.backupError = null; paintSave(); }
+  else if (e.type === 'tablet-key') tabletKey(e.key, e.down, true);
+  else if (e.type === 'tablet-pad') { tablet.pad = { name: e.name, denied: e.denied }; tablet.changed?.(); }
 });
 
 api.onFlush(async () => {
   await flushAll();
   await saveSession();
 });
+
+// ---------------------------------------------------------------- graphics tablet (docs/PLAN.md § 10)
+
+/**
+ * Keys on the tablet and on the pen do what Settings › Tablet says (src/shared/tablet.js), in an open scribble. The keys on
+ * the tablet come from the main process on Linux (it reads them itself), on Windows as the key combinations the Huion
+ * driver sends: Ctrl+Alt+Shift+F1 is key 1. While the settings are open, a key only shows which row it is.
+ */
+const tablet = { pad: { name: '', denied: false }, lastPad: -Infinity, listener: null }; // not 0: the clock starts at 0 on every load
+
+/** → what the key does: 'command', 'hold', 'pan', 'listen', or false for nothing */
+function tabletKey(key, down, fromPad) {
+  if (fromPad) tablet.lastPad = performance.now();
+  if (tablet.listener) { tablet.listener(key, down); return 'listen'; }
+  const a = actionFor(parseKeys(state.settings.tabletKeys ?? ''), key);
+  const kind = { [KeyKind.Command]: 'command', [KeyKind.Hold]: 'hold', [KeyKind.Pan]: 'pan' }[a.kind] ?? false;
+  const editor = activeTab()?.editor;
+  if (!kind || editor?.kind !== 'scribble') return kind;
+  if (a.kind === KeyKind.Pan) editor.setPanning(down);
+  else if (down || a.kind === KeyKind.Hold) editor.run(a.command); // "… while held" switches back on release
+  return kind;
+}
+
+/**
+ * If KDE still puts the tablet keys on shortcuts, the shortcut right after a key MyNotes read itself is ignored; other apps
+ * keep the KDE mapping.
+ * ponytail: assumes the key read here arrives before KWin's shortcut (KWin passes it on later, as measured in MyCAD's
+ * setup); a real key on the keyboard within 150 ms after a tablet key is lost
+ */
+for (const type of ['keydown', 'keyup']) {
+  window.addEventListener(type, (e) => {
+    const swallow = () => { e.preventDefault(); e.stopImmediatePropagation(); };
+    if (performance.now() - tablet.lastPad < 150) return swallow();
+    const f = e.ctrlKey && e.altKey && e.shiftKey && /^F(\d{1,2})$/.exec(e.key);
+    if (!f) return undefined;
+    swallow();
+    if (!e.repeat) tabletKey(padKey(Number(f[1])), type === 'keydown', false);
+    return undefined;
+  }, true);
+}
+
+/** Only the Sheet (Tab in a scribble): the sidebar and the status bar fold away, Tab again brings them back. */
+function setSheetOnly(on) {
+  document.documentElement.toggleAttribute('data-sheet-only', on);
+  placeBrand(on || state.settings.sidebarHidden);
+}
 
 // ---------------------------------------------------------------- keyboard and pointer
 

@@ -9,6 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { language, setLanguage, t } from '../shared/i18n.js';
 import { atomicWrite, checkRel, Store } from './store.js';
+import { allowAccess, watchPads } from './tablet.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i;
@@ -24,9 +25,23 @@ const DEFAULTS = {
   vault: process.env.MYNOTES_VAULT ?? path.join(os.homedir(), 'MyNotes'), backup: null, theme: 'auto', contrast: false,
   transparency: false, motion: false, glass: 0.5, fontSize: 14, wrap: true, fullWidth: false, jsonIndent: 2, sidebarWidth: 232, sidebarHidden: false, bounds: null, maximized: false, language: 'auto',
   spellcheck: {}, // the documents to check, by path in the notes folder or full path outside it
+  // tidying handwriting in scribbles, every step on its own (docs/PLAN.md § 10)
+  scribbleTidy: true, scribbleTidyStrength: 100, scribbleTidySmooth: true, scribbleTidySmoothing: 10, scribbleTidyStraight: true,
+  scribbleTidySize: true, scribbleTidySlant: true, scribbleTidyGaps: true, scribbleTidyWidth: true,
+  tabletModel: '', tabletKeys: '', tabletKeysSeen: 0, // the graphics tablet: model, keys that differ from the suggestion, keys seen of an unknown model
+};
+/** What the window may change, and of which kind: the window is sandboxed, but its settings land in a file read at every start. */
+const SETTABLE = {
+  theme: 'string', contrast: 'boolean', transparency: 'boolean', motion: 'boolean', glass: 'number', fontSize: 'number', wrap: 'boolean',
+  fullWidth: 'boolean', jsonIndent: 'any', sidebarWidth: 'number', sidebarHidden: 'boolean', language: 'string',
+  scribbleTidy: 'boolean', scribbleTidyStrength: 'number', scribbleTidySmooth: 'boolean', scribbleTidySmoothing: 'number', scribbleTidyStraight: 'boolean',
+  scribbleTidySize: 'boolean', scribbleTidySlant: 'boolean', scribbleTidyGaps: 'boolean', scribbleTidyWidth: 'boolean',
+  tabletModel: 'string', tabletKeys: 'string', tabletKeysSeen: 'number',
 };
 
 let settings;
+let pads = null; // tablet keys (tablet.js)
+let padState = { name: '', denied: false };
 let store;
 let win = null;
 let quitting = false;
@@ -278,9 +293,10 @@ function registerIpc() {
   handle('replaceMisspelling', (word) => win.webContents.replaceMisspelling(String(word)));
   handle('addToDictionary', (word) => { session.defaultSession.addWordToSpellCheckerDictionary(String(word)); });
   handle('version', () => app.getVersion());
+  handle('tabletAccess', async () => { await allowAccess(); setTimeout(() => pads.rescan(), 1000); });
   handle('setSettings', async (patch) => {
-    for (const k of ['theme', 'contrast', 'transparency', 'motion', 'glass', 'fontSize', 'wrap', 'fullWidth', 'jsonIndent', 'sidebarWidth', 'sidebarHidden', 'language']) {
-      if (k in patch) settings[k] = patch[k];
+    for (const [k, type] of Object.entries(SETTABLE)) {
+      if (k in patch && (type === 'any' || typeof patch[k] === type) && (type !== 'number' || Number.isFinite(patch[k]))) settings[k] = patch[k];
     }
     applyLanguage();
     if (process.platform === 'win32') win?.setBackgroundColor(windowBackground());
@@ -357,6 +373,8 @@ registerProtocol();
 registerIpc();
 await setupSpelling().catch((e) => console.error('spelling:', e)); // without it the notes still open
 createWindow();
+pads = watchPads({ onKey: (key, down) => send({ type: 'tablet-key', key, down }), onPad: (p) => { padState = p; send({ type: 'tablet-pad', ...p }); } });
+win.webContents.on('did-finish-load', () => send({ type: 'tablet-pad', ...padState })); // also after a reload
 watchVault();
 store.syncBackup();
 if (process.platform === 'win32' && app.isPackaged) fixPinnedIcons(path.join(app.getPath('appData'), 'Microsoft', 'Internet Explorer', 'Quick Launch', 'User Pinned', 'TaskBar'), process.execPath);

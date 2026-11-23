@@ -39,6 +39,25 @@ const paths = {
   strike: stroke('<path d="M4.5 12h15M16 7.5C15.3 5.8 13.8 5 12 5c-2.4 0-4 1.3-4 3.2 0 1.4.8 2.3 2.2 3M8 16.5c.7 1.7 2.2 2.5 4 2.5 2.4 0 4-1.3 4-3.2 0-.6-.1-1.1-.4-1.5"/>'),
   code: stroke('<path d="M8.5 7l-5 5 5 5M15.5 7l5 5-5 5"/>'),
   table: stroke('<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><path d="M3.5 10h17M3.5 14.5h17M9.5 10v9"/>'),
+  // Scribble, the same symbols as in MyCAD (tools/make_icons.py)
+  scribble: stroke('<path d="M3 19c1.5-2.2 3-2.2 4 0s2.5 2.2 4 0"/><path d="M12.5 13.5l7-7a1.8 1.8 0 0 0-2.5-2.5l-7 7-1 3.5z"/>'),
+  pencil: stroke('<path d="M4 20l1-4.5L15.5 5a2 2 0 0 1 3 3L8 18.5z"/><path d="M13.5 7l3 3M5 15.5l3.5 3"/>'),
+  pen: stroke('<path d="M4 20l2.5-6.5 9-9a2 2 0 0 1 3 3l-9 9z"/><path d="M14 6l3 3"/>'),
+  marker: stroke('<path d="M14.5 3.5l6 6-8 8-6-6z"/><path d="M6.5 11.5l-3 3V18H7l3-3"/><path d="M4 21h10" stroke-width="2.6"/>'),
+  eraser: stroke('<path d="M9 20h11"/><path d="M4.6 14.6l9.9-9.9a2 2 0 0 1 2.8 0l2.8 2.8a2 2 0 0 1 0 2.8L11 19.4a2 2 0 0 1-1.4.6H8.4a2 2 0 0 1-1.4-.6l-2.4-2.4a2 2 0 0 1 0-2.8z"/><path d="M9.5 9.7l5.6 5.6"/>'),
+  select: stroke('<path d="M12 4.5c-4.7 0-8.5 2.4-8.5 5.4 0 2 1.7 3.7 4.3 4.6" stroke-dasharray="2.4 2.2"/><path d="M20.4 9.6c-.4-2.9-4-5.1-8.4-5.1" stroke-dasharray="2.4 2.2"/><path d="M11 11l9 3.6-3.9 1.4-1.5 3.9z"/>'),
+  fill: stroke('<path d="M4 11l7-7 8 8-7 7a2 2 0 0 1-2.8 0L4 13.8a2 2 0 0 1 0-2.8z"/><path d="M4 12h15"/>'),
+  text: stroke('<path d="M5 7V5h14v2M12 5v14M9 19h6"/>'),
+  line: stroke('<path d="M5 19L19 5"/>'),
+  arrow: stroke('<path d="M5 19L19 5"/><path d="M11 5h8v8"/>'),
+  rectangle: stroke('<rect x="4" y="6" width="16" height="12" rx="1"/>'),
+  triangle: stroke('<path d="M12 4l9 16H3z"/>'),
+  hexagon: stroke('<path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z"/>'),
+  circle: stroke('<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none"/>'),
+  ellipse: stroke('<ellipse cx="12" cy="12" rx="9" ry="6"/>'),
+  focus: stroke('<path d="M14 10l6-6M14 10V5.5M14 10h4.5M10 14l-6 6M10 14v4.5M10 14H5.5"/>'),
+  fit: stroke('<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>'),
+  tablet: stroke('<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M7 9v6"/><rect x="10" y="8.5" width="8" height="7" rx="1"/>'),
 };
 
 export const icon = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name] ?? ''}</svg>`;

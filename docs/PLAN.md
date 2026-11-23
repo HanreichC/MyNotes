@@ -217,3 +217,75 @@ Renderer mit `sandbox` und `contextIsolation`, kein Node im Renderer, strenge CS
 ## 9. Später, wenn es fehlt
 
 Makros, Änderungen beim Vergleichen per Klick übernehmen, Hex-Ansicht, Plugins, Links zwischen Notizen, Glas-Linse, englische Oberfläche, Ausdünnen des Verlaufs.
+
+## 10. Scribbles und Grafiktablett wie in MyCAD (Wunsch 2026-11-23)
+
+Dieselben Scribbles wie in MyCAD, 1:1, mit Schönschrift und Berichtigen der Schrift, dazu voller Support für das Huion H640P (6 Tasten am Tablett, 2 am Stift). Vorbild in MyCAD: `src/Mod/Design/Gui/Scribble.cpp`, `ScribbleTidy.h`, `ScribbleShapes.h`, `ScribbleRead.cpp`, `src/Gui/Shell/TabletKeys.h`, `TabletActions` und die Seite Tablett in `src/Gui/Shell/Settings.cpp`, MyCAD-PLAN S1–S7 und T1.
+
+### 10.1 Was übernommen wird
+
+| MyCAD | MyNotes |
+|---|---|
+| Bleistift, Fineliner, Marker in 5 Farben; Breite in Bildschirm-px; Druckkurve `p³` (gemessen an der H640P unter KDE) | 1:1, Druckkurve je System nachmessen (10.3, Schritt 0) |
+| Radierer: Stift-Ende, **E**, Tablett-Taste | 1:1 |
+| Halten (450 ms) macht Linie, Bogen, Kreis, Ellipse, Dreieck, Rechteck; Einrasten an Achsen und Strich-Enden; Halten auf einem Strich greift ihn | 1:1 |
+| Form-Werkzeuge, Füllen nach Umlaufzahl, Auswählen (**V**, Lasso, Leiste), Text | 1:1 |
+| Schönschrift nach 1 s Pause (`tidy`, `follow`, Gleiten), Strg+Z holt die rohe Schrift | 1:1 |
+| Schrift lesen (DE·HTR v2), `looksRead`, `words`, CAD-Schreibweise (`correct`, `applyInk`: Ø12, 2×45°, 25 mm, ±) | 1:1 |
+| Handschrift suchen (Palette) | Die normale Volltextsuche findet Geschriebenes |
+| Nur das Blatt (**Tab**) | Seitenleiste und Tabs ausblenden |
+| Gerade aufs Blatt (**L**) | Blatt einpassen |
+| Tablett-Seite: Modell, Erkennung, Zeichnung, Belegung, Vorschlag H640P, Lernen, Zugriff erlauben, KDE-Kürzel überhören | 1:1; Drehen wird Verschieben; Windows über Treiber-Kombinationen |
+| Transparentpapier, Blatt verschieben, Rotstift, In Skizze umwandeln | Entfällt (nur mit 3D-Modell sinnvoll) |
+
+### 10.2 Aufbau
+
+- **Ein Scribble ist eine eigene Notiz, gespeichert als `.svg`.** Der Store journalisiert sie wie jeden Text, also gelten Journal, Verlauf, Papierkorb und zweiter Sicherungsort ohne neuen Speicherweg. Inhalt der Datei:
+  - Die Markierung `data-mynotes-scribble="1"`.
+  - `<desc>` mit dem gelesenen Text, eine Zeile pro Zeile.
+  - Ein `<path>` pro Strich auf einer eigenen Zeile, mit `d` (Umriss) und `data-p` (Rohpunkte x y w).
+
+  Eingebettet in Markdown als `![](….svg)`. Der Name kommt aus der ersten gelesenen Zeile. Andere SVG-Dateien bleiben im Code-Editor.
+- **Logik** in JS ohne Umbau portiert: `src/shared/scribble.js` (Tidy, Shapes, Grammatik aus ScribbleRead), `src/shared/tablet.js` (TabletKeys).
+- **Erkennung** mit `onnxruntime-web` in einem Web Worker (reines WASM, kein Native-Build).
+  - `build.mjs` lädt `naeyn/de-htr-web-v2` (Revision `6241c1ff…`) und prüft SHA-256 `b576a0a1281b9be46b2574028b75575e041b7d7cb650f063886e733467cc1499`.
+  - Die CSP braucht `'wasm-unsafe-eval'`.
+  - Ohne Modell räumt die Schönschrift auf, liest aber nicht.
+- **Tablett-Tasten unter Linux** liest der Main-Prozess selbst:
+  - Pad-Geräte sind die mit `ID_INPUT_TABLET_PAD=1` aus `/run/udev/data`. Gelesen werden die `input_event` aus `/dev/input/event*`, Tastennummern in der Reihenfolge der Codes wie bei libinput.
+  - Zugriff gibt dieselbe udev-Regel wie in MyCAD.
+  - KDE-Kürzel überhört MyNotes per `before-input-event`, 150 ms nach einer selbst gelesenen Taste.
+- **Tablett-Tasten unter Windows:** Der Huion-Treiber legt die Tasten in einem Profil für `MyNotes.exe` auf Kombinationen (Vorschlag Strg+Alt+Umschalt+F1…F6), MyNotes erkennt diese als Taste 1–6.
+- **Stift:** Pointer Events mit `getCoalescedEvents()`; Seitentaste `buttons & 2`, Radierer `buttons & 32`; Schweben über `pointermove` ohne Taste.
+
+### 10.3 Schritte
+
+| # | Schritt | Fertig, wenn |
+|---|---|---|
+| 0 | An der echten H640P messen: `npx electron tests/pen-probe.cjs`, unter CachyOS mit Wayland, mit `--ozone-platform=x11` und unter Windows | Bekannt: Druck pro System, Namen der Stift-Tasten, Punktrate, Pad-Tasten über evdev, Reihenfolge Pad-Taste vor KDE-Kürzel |
+| 1 | Logik-Port mit `tests/scribble.test.js` (Fälle aus `scribble_tidy_check`, `scribble_shapes_check`, `tablet_keys_check`, Grammatik aus `scribble_read_check`); einmal gegen C++ verglichen | `npm test` grün |
+| 2 | Scribble-Editor als Tab-Typ: Stifte, Druck, Radierer, Fangen, Formen, Füllen, Auswählen, Text, Rückgängig, Zoom, Punktraster, Dunkelmodus | Zeichnen mit Stift und Maus, Absturztest überlebt |
+| 3 | Schönschrift und Karte „Stift & Handschrift“ (Schalter, Stärke, 6 Schritte, Glätten 1–30 %) | e2e mit Stift-Ereignissen (CDP `pointerType: 'pen'`): gerade nach 1 s, Strg+Z roh |
+| 4 | Lesen und Berichtigen, `<desc>`, Suche liest bei Scribbles nur `<desc>` | Synthetische Schrift gelesen, o12 bekommt den Schrägstrich, Suche findet Geschriebenes |
+| 5 | Tablett-Seite, `src/main/tablet.js`, pkexec-Regel, `install.sh` | Am H640P tun alle Tasten, was eingestellt ist, ohne Doppel durch KDE |
+| 6 | Scribble in Markdown einfügen, Doppelklick öffnet es daneben | Bild aktualisiert sich |
+| 7 | README, MyStyle § 14, Englisch in `i18n.js` | CI grün |
+
+**Stand 2026-11-23:** Schritte 1 bis 5 und 7 sind umgesetzt, ohne echtes Tablett (Wunsch: alles emulieren, Werte aus MyCAD). Schritt 0 ist durch die Messwerte aus MyCAD ersetzt (Druckkurve `p³` von der H640P unter KDE, 6 Tasten, Vorschlag aus T1); `tests/pen-probe.cjs` bleibt für die Messung am Gerät.
+
+- Logik: `src/shared/scribble-shapes.js`, `scribble-tidy.js`, `scribble-read.js`, `tablet.js` (1:1 aus MyCAD), `htr.js` (Zeilenbild und CTC-Lesen, ohne Canvas, läuft im Worker und in Node), `scribble-svg.js` (Dateiformat).
+- Editor: `src/renderer/scribble.js`, Lesen im Worker `src/renderer/htr-worker.js`. Text-Werkzeug über ein verstecktes Textfeld (Tottasten, AltGr, IME). Typ-Text ist eine eigene Strichart 8 mit Kasten als Geometrie, statt Schrift-Umrissen wie in MyCAD (Umrisse bräuchten opentype.js).
+- Tablett-Tasten: `src/main/tablet.js` (evdev, ohne libinput), Belegung und KDE-Kürzel in `app.js`, Seite in den Einstellungen.
+- Tests: `scribble-*.test.js`, `tablet.test.js` (auch ein emuliertes H640P-Pad als `input_event`-Strom), Modell-Tests mit dem echten Modell; e2e schreibt mit emuliertem Stift (CDP `pointerType: 'pen'`, Druck), drückt Tablett-Tasten über das IPC-Ereignis des Linux-Lesers und über die Windows-Kombination.
+- Gemessen: Lesen in WebAssembly ist langsamer als in MyCAD, Aufräumen kommt rund 2 s statt 1 s nach dem Absetzen.
+
+Am echten H640P offen: welche Stift-Taste Chromium als 2 (untere) meldet, Druck unter Wayland und unter Windows, Reihenfolge Pad-Taste vor KDE-Kürzel.
+
+### 10.4 Offen
+
+- Schritt 6: „Scribble einfügen“ in Markdown und Öffnen per Doppelklick aufs Bild. Einbetten von Hand (`![](….svg)`) zeigt es schon.
+- Lesen schneller: onnxruntime-node im Main-Prozess statt WebAssembly, wenn die 2 s stören.
+- Malen direkt im Notiztext (Zeichenblock wie in OneNote) statt eigener Notiz: erst, wenn die eigene Notiz nicht reicht.
+- Windows-Tasten über WebHID roh lesen: nur, wenn die Treiber-Kombinationen stören.
+- Schalter für die CAD-Schreibweise in Notizen: vorerst immer an (1:1).
+- Druck unter Wayland in Electron 45, Leseergebnisse mit Canvas statt QPainter, Tempo von WASM (gelesene Zeilen zwischenspeichern): klärt Schritt 0 bzw. 4.

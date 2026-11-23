@@ -28,7 +28,7 @@ The tabs of Notepad++ and the structure of a wiki, with a Markdown editor like N
 
 <br>
 
-Contents: [Saving](#close-it-kill-it-its-still-there) · [Tabs](#open-a-tab-start-typing) · [Tree](#a-wiki-not-a-pile-of-tabs) · [Markdown](#markdown-without-the-markup) · [JSON](#json-pretty-numbers-intact) · [Code](#still-notepad-at-heart) · [Look](#glass-light-or-dark) · [Failures](#when-things-go-wrong) · [Tech specs](#tech-specs) · [Install](#download-install-done) · [Building](#or-build-it-yourself-in-two-commands) · [Testing](#tested-again-and-again) · [Limitations](#what-doesnt-work-yet) · [Origins](#origins-and-license)
+Contents: [Saving](#close-it-kill-it-its-still-there) · [Tabs](#open-a-tab-start-typing) · [Tree](#a-wiki-not-a-pile-of-tabs) · [Markdown](#markdown-without-the-markup) · [JSON](#json-pretty-numbers-intact) · [Code](#still-notepad-at-heart) · [Scribble](#scribble-with-a-pen) · [Look](#glass-light-or-dark) · [Failures](#when-things-go-wrong) · [Tech specs](#tech-specs) · [Install](#download-install-done) · [Building](#or-build-it-yourself-in-two-commands) · [Testing](#tested-again-and-again) · [Limitations](#what-doesnt-work-yet) · [Origins](#origins-and-license)
 
 <br>
 
@@ -154,6 +154,24 @@ The main shortcuts are below. `F1` or `Keyboard Shortcuts` in the sidebar shows 
 
 <br>
 
+## Scribble. With a pen.
+
+Right-click the `+` and choose `New Scribble` for a sheet with a fine dot grid. A pen tablet is best, the mouse works too. It's the scribble of [MyCAD](https://github.com/HanreichC/MyCAD), with the same pens, shapes and handwriting.
+
+- **Pens:** Pencil, Fineliner and Marker in five colors. Press harder for a thicker line. Erase with the back of the pen, or press `E` (`E` again goes back to the pen).
+- **Clean shapes:** hold the pen still for a moment at the end of a stroke and it becomes a line, arc, circle, ellipse, triangle or rectangle. Lines snap level, plumb and to stroke ends.
+- **Shapes and Fill:** drag out a line, arrow, rectangle, triangle, hexagon, circle or ellipse. `Fill` colors a closed shape or an area you draw around.
+- **Select** (`V`): tap strokes or draw around them, then drag. A small bar recolors or deletes them. `Text` writes on the sheet with the keyboard.
+- **Tidy handwriting:** a second after you lift the pen, your words line up: straight, the same size and slant, still in your own hand. Small drawings stay as drawn. `Ctrl+Z` brings back the raw version. Every step can be switched off in the settings under `Pen & Handwriting`.
+- **Reads handwriting** offline, with a German model: the search across notes finds what you wrote, and the scribble is named after its first line. Sizes get CAD notation: `o12` → `Ø12`, `2x45` → `2×45°`, `25mm` → `25 mm`.
+- **Only the Sheet** (`Tab`) folds the sidebar and the status bar away. `L` fits everything into view, the wheel scrolls, `Ctrl` + wheel zooms.
+
+A scribble is an SVG file in your notes folder, so any browser shows it and a Markdown note can show it as an image. Your handwriting, as read, is in it as text.
+
+**Graphics tablet:** `Settings` › `Graphics Tablet` sets what each key on the tablet and on the pen does, with a suggestion for the Huion H640P. Press a key and its row lights up; a tablet that isn't in the list learns its keys that way. On Linux MyNotes reads the keys itself. It needs a udev rule once for that, which `Allow Access` or `install.sh` sets up (the same rule as MyCAD's). If KDE still puts the keys on shortcuts, MyNotes ignores those. On Windows the Huion driver sends the keys: give them `Ctrl+Alt+Shift+F1` to `F6` for MyNotes.
+
+<br>
+
 ## Glass. Light or dark.
 
 <div align="center">
@@ -201,6 +219,8 @@ The settings (`Ctrl+,`) also hold the language (English, German, or the system's
 | Encodings | UTF-8, UTF-16 LE and BE, Windows-1252, with LF, CRLF or CR |
 | File size | Up to 128 MB; Markdown above 2 MB opens as source |
 | Spelling | German and English, per note, Hunspell dictionaries included (on Windows the system checks German) |
+| Scribble | Pen pressure, shapes, tidy handwriting; reading handwriting with DE·HTR v2 (onnxruntime-web, offline) |
+| Graphics tablet | Keys on the tablet and the pen; tablet keys read from `/dev/input` on Linux, from the Huion driver on Windows |
 | Runtime | Electron 45, sandboxed window, no network requests of its own |
 | License | GPL-3.0 |
 
@@ -273,6 +293,9 @@ npm run e2e   # the real app in a real window
 - The history of a note only grows until the note is deleted for good. Notes are small, but nothing thins it out yet.
 - Pasted images stay in `.mynotes/assets` after the note that used them is deleted.
 - Search skips files above 5 MB and stops at 500 hits.
+- The graphics tablet support was built without a tablet at hand, against an emulated one and what MyCAD measured on a Huion H640P. Which pen button is the lower one, and the pressure curve on Windows, are still to be checked on the real device.
+- Reading handwriting runs in WebAssembly, slower than in MyCAD: tidying comes about two seconds after the pen lifts instead of one, and a full page takes a moment to search.
+- A scribble can't be drawn on inside a Markdown note yet. Embedded as an image (`![](Scribble.svg)`) it shows, but drawing happens in its own tab.
 - On Windows, Windows itself checks German and gives Electron no suggestions. A misspelled German word is underlined, but the right click only offers English corrections, or none.
 
 <br>
@@ -285,7 +308,7 @@ Everything about keeping text safe is in [`src/main/store.js`](src/main/store.js
 
 ## Origins and license.
 
-MyNotes takes its idea from [Notepad++](https://github.com/notepad-plus-plus/notepad-plus-plus) and no code from it. It is built on [Electron](https://www.electronjs.org), [TipTap](https://tiptap.dev), [CodeMirror](https://codemirror.net) and [marked](https://marked.js.org), all under the MIT license, and ships the [Inter](https://rsms.me/inter/) typeface under the SIL Open Font License. Thanks to everyone who works on them.
+MyNotes takes its idea from [Notepad++](https://github.com/notepad-plus-plus/notepad-plus-plus) and no code from it. It is built on [Electron](https://www.electronjs.org), [TipTap](https://tiptap.dev), [CodeMirror](https://codemirror.net), [marked](https://marked.js.org) and [ONNX Runtime Web](https://onnxruntime.ai), all under the MIT license, reads handwriting with [DE·HTR v2](https://huggingface.co/naeyn/de-htr-web-v2) under the Apache-2.0 license (training data and their attribution in [`docs/htr`](docs/htr)), and ships the [Inter](https://rsms.me/inter/) typeface under the SIL Open Font License. Thanks to everyone who works on them.
 
 MyNotes is licensed under the [GNU General Public License v3.0](LICENSE). The libraries and the typeface keep their own licenses.
 

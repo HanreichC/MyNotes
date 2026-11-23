@@ -1,6 +1,7 @@
 // Bytes <-> text without losing anything, and file names that stay valid on both Windows and Linux.
 
 import { t } from './i18n.js';
+import { isScribble, scribbleText } from './scribble-svg.js';
 
 const cp1252Table = (() => {
   const dec = new TextDecoder('windows-1252');
@@ -63,7 +64,9 @@ export function safeName(name, fallback = t('Unbenannt')) {
 }
 
 /** Prose is named after its first line. The first line of code or JSON says nothing, so those wait for a real name. */
-export const nameFromText = (text, ext) => (/^\.(md|markdown|txt)$/i.test(ext) ? titleOf(text) : t('Unbenannt'));
+export const nameFromText = (text, ext) => (/^\.(md|markdown|txt)$/i.test(ext) ? titleOf(text)
+  : /^\.svg$/i.test(ext) && isScribble(text) ? titleOf(scribbleText(text)) // a scribble is named after its first handwritten line
+    : t('Unbenannt'));
 
 const TITLE_MAX = 40;
 

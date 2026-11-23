@@ -150,14 +150,14 @@ export function pick({ title, items }) {
 }
 
 /** A card over the dimmed window, for settings, history, trash and search. */
-export function sheet(title, { wide = false } = {}) {
+export function sheet(title, { wide = false, onClose } = {}) {
   const body = el('div', { class: 'sheet-body ms-scroll' });
   const box = el('div', { class: `sheet${wide ? ' sheet--wide' : ''}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     el('header', { class: 'sheet-head' },
       el('h2', { class: 'ms-headline' }, title),
       el('button', { class: 'round-btn', 'aria-label': t('Schließen'), title: t('Schließen'), html: icon('close'), onclick: () => close() })),
     body);
-  const { close } = overlay(box, { scrim: true });
+  const { close } = overlay(box, { scrim: true, onClose });
   box.querySelector('.round-btn').focus();
   return { body, close };
 }

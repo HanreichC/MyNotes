@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { parentPort, workerData } from 'node:worker_threads';
 import { setLanguage, t } from '../shared/i18n.js';
+import { isScribble, textLines } from '../shared/scribble-svg.js';
 import { decode } from '../shared/text.js';
 
 const { vault, query, regex, caseSensitive, language } = workerData;
@@ -26,7 +27,10 @@ try {
       if (size > MAX_FILE) continue;
       let text;
       try { text = decode(await fs.readFile(path.join(vault, p))).text; } catch { continue; } // not text
+      const only = isScribble(text) ? textLines(text) ?? [0, -1] : null; // a scribble: only its handwriting, not the numbers of its strokes
       text.split('\n').forEach((line, i) => {
+        if (only && (i + 1 < only[0] || i + 1 > only[1])) return;
+        if (only) line = line.replace(/<\/?desc>/g, '');
         re.lastIndex = 0;
         const m = results.length < MAX_RESULTS && re.exec(line);
         if (m) results.push({ path: p, line: i + 1, column: m.index + 1, text: line.slice(Math.max(0, m.index - 40), m.index + 120) });
