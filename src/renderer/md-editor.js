@@ -333,9 +333,10 @@ function createToolbar(editor, onLink) {
 // Its own instance: TipTap registers token types on the global one that a plain parse cannot render.
 const marked = new Marked({ gfm: true, async: false });
 // A list mixing checkboxes and plain points comes back with a blank line in it, which Markdown calls a "loose" list:
-// same text in the same order, only the spacing differs, so the tight/loose difference does not count.
+// same text in the same order, only the spacing differs, so the tight/loose difference does not count. Loose only wraps
+// the first block of an item in <p>, also when a nested list follows it (<li><p>a</p><ol>), so that <p> is unwrapped.
 // Blank paragraphs do not count either: extra blank lines come back as &nbsp; lines, which only keep the spacing that is shown.
-const canon = (md) => marked.parse(md).replaceAll('<p>&nbsp;</p>', '').replace(/\s+/g, ' ').replace(/> </g, '><').replaceAll('<li><p>', '<li>').replaceAll('</p></li>', '</li>').trim();
+const canon = (md) => marked.parse(md).replaceAll('<p>&nbsp;</p>', '').replace(/\s+/g, ' ').replace(/> </g, '><').replace(/<li><p>(.*?)<\/p>/g, '<li>$1').trim();
 
 /** Would the regenerated Markdown still mean the same? If we cannot tell, the answer is no. */
 export function isFaithful(original, regenerated) {

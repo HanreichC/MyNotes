@@ -79,7 +79,10 @@ export function titleOf(text) {
     const t = line
       .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // an image says nothing about the title
       .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // of a link, only its text does
-      .replace(/^\s*(#{1,6}\s+|>\s*|[-*+]\s+(\[[ xX]\]\s+)?|\d+[.)]\s+)*/, '').replace(/[*_`~]/g, '').trim();
+      .replace(/^\s*(#{1,6}\s+|>\s*|[-*+]\s+(\[[ xX]\]\s+)?|\d+[.)]\s+)*/, '')
+      .replace(/\\([\\`*_[\]~])/g, '$1') // the live editor escapes these, and writes & < > as entities: the name shows the characters
+      .replace(/[*_`~]/g, '')
+      .replace(/&(amp|lt|gt|quot|nbsp);/g, (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', nbsp: ' ' })[e]).trim();
     if (/[\p{L}\p{N}]/u.test(t)) return safeName(shorten(t));
   }
   return t('Unbenannt');

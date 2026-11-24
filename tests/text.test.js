@@ -82,6 +82,7 @@ test('titles come from the first line with text', () => {
   assert.equal(titleOf('Siehe [die Doku](https://example.com/a?b=1) hier'), 'Siehe die Doku hier');
   assert.equal(titleOf('{\n"name": "x"\n}'), 'name x');
   assert.equal(titleOf('---\n***'), 'Unbenannt');
+  assert.equal(titleOf('Code &lt;--&gt; Name, A &amp; B, &amp;lt; \\[x\\]'), 'Code -- Name, A & B, &lt; [x]'); // as the live editor writes it
   assert.equal(titleOf(''), 'Unbenannt');
   // long lines: cut at a word, and the name no longer changes while the line goes on
   const long = 'Hallo was ist das denn für eine fesfesfsefsfseffffffffffffffff';

@@ -284,6 +284,7 @@ try {
     'A &amp; B und 5 > 3\n',
     '---\ntitle: x\n---\n\nText\n',
     '[Link](https://example.com)\n\n&nbsp;\n\n  \n\n\n[Noch einer](https://example.org)\n', // a blank line written as "  " by an older version
+    '1. Punkt\n   1. &nbsp;\n\n1. Zwei\n2. Drei\n', // a loose list whose item has a nested list comes back tight
   ];
   for (const [i, text] of corpus.entries()) {
     const name = `korpus${i}.md`;
